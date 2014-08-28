@@ -144,13 +144,13 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	down(&mm->mmap_sem);
 
 	vma = find_vma(mm, address);
-	if (!vma)
+	if (!vma)   //用户空间访问系统空间的内容
 		goto bad_area;
-	if (vma->vm_start <= address)
+	if (vma->vm_start <= address)  //说明映射已经找到了
 		goto good_area;
-	if (!(vma->vm_flags & VM_GROWSDOWN))
+	if (!(vma->vm_flags & VM_GROWSDOWN)) //空洞的brk
 		goto bad_area;
-	if (error_code & 4) {
+	if (error_code & 4) {  //用户空间时
 		/*
 		 * accessing the stack below %esp is always a bug.
 		 * The "+ 32" is there due to some instructions (like
@@ -177,7 +177,7 @@ good_area:
 #endif
 			/* fall through */
 		case 2:		/* write, not present */
-			if (!(vma->vm_flags & VM_WRITE))
+			if (!(vma->vm_flags & VM_WRITE))  //如果有写的权限
 				goto bad_area;
 			write++;
 			break;
@@ -222,15 +222,15 @@ good_area:
  * Fix it, but check if it's kernel or user first..
  */
 bad_area:
-	up(&mm->mmap_sem);
+	up(&mm->mmap_sem);  //不需要再对mm进行操作了
 
 bad_area_nosemaphore:
 	/* User mode accesses just cause a SIGSEGV */
-	if (error_code & 4) {
+	if (error_code & 4) {   //越界访问
 		tsk->thread.cr2 = address;
 		tsk->thread.error_code = error_code;
 		tsk->thread.trap_no = 14;
-		info.si_signo = SIGSEGV;
+		info.si_signo = SIGSEGV;  //SIGSEGV无效的存储器引用
 		info.si_errno = 0;
 		/* info.si_code has been set above */
 		info.si_addr = (void *)address;

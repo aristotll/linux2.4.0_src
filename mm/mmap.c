@@ -409,9 +409,9 @@ struct vm_area_struct * find_vma(struct mm_struct * mm, unsigned long addr)
 	if (mm) {
 		/* Check the cache first. */
 		/* (Cache hit rate is typically around 35%.) */
-		vma = mm->mmap_cache;
+		vma = mm->mmap_cache;	//上一次该进程访问的地址空间
 		if (!(vma && vma->vm_end > addr && vma->vm_start <= addr)) {
-			if (!mm->mmap_avl) {
+			if (!mm->mmap_avl) {  //没有avl树时
 				/* Go through the linear list. */
 				vma = mm->mmap;
 				while (vma && vma->vm_end <= addr)
@@ -420,7 +420,7 @@ struct vm_area_struct * find_vma(struct mm_struct * mm, unsigned long addr)
 				/* Then go through the AVL tree quickly. */
 				struct vm_area_struct * tree = mm->mmap_avl;
 				vma = NULL;
-				for (;;) {
+				for (;;) {		//循环
 					if (tree == vm_avl_empty)
 						break;
 					if (tree->vm_end > addr) {
@@ -958,6 +958,7 @@ void __insert_vm_struct(struct mm_struct *mm, struct vm_area_struct *vmp)
 	}
 }
 
+do_page_fault
 void insert_vm_struct(struct mm_struct *mm, struct vm_area_struct *vmp)
 {
 	lock_vma_mappings(vmp);

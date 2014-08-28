@@ -405,6 +405,7 @@ struct thread_struct {
 	{~0, } /* ioperm */					\
 }
 
+//内核中堆栈段与数据段是不分的
 #define start_thread(regs, new_eip, new_esp) do {		\
 	__asm__("movl %0,%%fs ; movl %0,%%gs": :"r" (0));	\
 	set_fs(USER_DS);					\
