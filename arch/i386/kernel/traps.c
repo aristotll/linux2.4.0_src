@@ -85,6 +85,7 @@ asmlinkage void alignment_check(void);
 asmlinkage void spurious_interrupt_bug(void);
 asmlinkage void machine_check(void);
 
+SYMBOL_NAME
 int kstack_depth_to_print = 24;
 
 /*
@@ -788,17 +789,24 @@ void __init trap_init_f00f_bug(void)
 #define _set_gate(gate_addr,type,dpl,addr) \
 do { \
   int __d0, __d1; \
-  __asm__ __volatile__ ("movw %%dx,%%ax\n\t" \
+  __asm__ __volatile__ ("movw %%dx,%%ax\n\t" \  //低16位
 	"movw %4,%%dx\n\t" \
 	"movl %%eax,%0\n\t" \
-	"movl %%edx,%1" \
-	:"=m" (*((long *) (gate_addr))), \
-	 "=m" (*(1+(long *) (gate_addr))), "=&a" (__d0), "=&d" (__d1) \
+	"movl %%edx,%1" \ //
+			  //0
+	:"=m" (*((long *) (gate_addr))), \  //都是内存单元
+
+	  // 1                               2               3
+	 "=m" (*(1+(long *) (gate_addr))), "=&a" (__d0), "=&d" (__d1) \ 
+	  
+	 //4， 0x8000表示p，在内存中
 	:"i" ((short) (0x8000+(dpl<<13)+(type<<8))), \
-	 "3" ((char *) (addr)),"2" (__KERNEL_CS << 16)); \
+	  
+	//  edx=addr                 eax=__KERNEL_CS ,进入到内核态
+	"3" ((char *) (addr)),"2" (__KERNEL_CS << 16)); \ //edx=addr
 } while (0)
 
-
+IRQ_NAME
 /*
  * This needs to use 'idt_table' rather than 'idt', and
  * thus use the _nonmapped_ version of the IDT, as the
@@ -807,22 +815,24 @@ do { \
  */
 void set_intr_gate(unsigned int n, void *addr)
 {
-	_set_gate(idt_table+n,14,0,addr);
+	_set_gate(idt_table+n,14,0,addr);   //1 110, 
 }
-
+page_fault
 static void __init set_trap_gate(unsigned int n, void *addr)
 {
 	_set_gate(idt_table+n,15,0,addr);
+	//设置idt的n项，（2）15＝1 111，即段偏移量为32位，陷阱门，（3）DPL，0，用户空间可能通过不了的
+	
 }
 
 static void __init set_system_gate(unsigned int n, void *addr)
 {
-	_set_gate(idt_table+n,15,3,addr);
+	_set_gate(idt_table+n,15,3,addr); //系统调用，陷阱门，也是可中断的，但是DPL为3，因此用户空间的int 80可以通过
 }
 
 static void __init set_call_gate(void *a, void *addr)
 {
-	_set_gate(a,12,3,addr);
+	_set_gate(a,12,3,addr); //1100，调用门
 }
 
 #define _set_seg_desc(gate_addr,type,dpl,base,limit) {\
@@ -946,22 +956,23 @@ cobalt_init(void)
 	printk("Cobalt APIC enabled: ID reg %lx\n", co_apic_read(CO_APIC_ID));
 }
 #endif
-void __init trap_init(void)
+void __init trap_init(void)  //保留的中断向量初始化
 {
 #ifdef CONFIG_EISA
 	if (isa_readl(0x0FFFD9) == 'E'+('I'<<8)+('S'<<16)+('A'<<24))
 		EISA_bus = 1;
 #endif
 
+	//19个陷阱门，用于异常处理的
 	set_trap_gate(0,&divide_error);
 	set_trap_gate(1,&debug);
 	set_intr_gate(2,&nmi);
 	set_system_gate(3,&int3);	/* int3-5 can be called from all */
 	set_system_gate(4,&overflow);
 	set_system_gate(5,&bounds);
-	set_trap_gate(6,&invalid_op);
+	set_trap_gate(6,&invalid_op);   //无效操作
 	set_trap_gate(7,&device_not_available);
-	set_trap_gate(8,&double_fault);
+	set_trap_gate(8,&double_fault);  //双重异常处理
 	set_trap_gate(9,&coprocessor_segment_overrun);
 	set_trap_gate(10,&invalid_TSS);
 	set_trap_gate(11,&segment_not_present);

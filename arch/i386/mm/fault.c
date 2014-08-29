@@ -150,17 +150,19 @@ asmlinkage void do_page_fault(struct pt_regs *regs, unsigned long error_code)
 		goto good_area;
 	if (!(vma->vm_flags & VM_GROWSDOWN)) //空洞的brk
 		goto bad_area;
+
 	if (error_code & 4) {  //用户空间时
 		/*
 		 * accessing the stack below %esp is always a bug.
-		 * The "+ 32" is there due to some instructions (like
+		 * The "+ 32" is there due to some instructions 
+		 * (like
 		 * pusha) doing post-decrement on the stack and that
 		 * doesn't show up until later..
 		 */
 		if (address + 32 < regs->esp)
 			goto bad_area;
 	}
-	if (expand_stack(vma, address))
+	if (expand_stack(vma, address))  //用户堆栈过小了
 		goto bad_area;
 /*
  * Ok, we have a good vm_area for this memory access, so
@@ -177,7 +179,7 @@ good_area:
 #endif
 			/* fall through */
 		case 2:		/* write, not present */
-			if (!(vma->vm_flags & VM_WRITE))  //如果有写的权限
+			if (!(vma->vm_flags & VM_WRITE))  //堆栈段是有写权限的，如果有写的权限
 				goto bad_area;
 			write++;
 			break;

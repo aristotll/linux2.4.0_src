@@ -15,7 +15,7 @@
 #include <linux/config.h>
 #include <asm/irq.h>
 
-/*
+/*:
  * IDT vectors usable for external interrupt sources start
  * at 0x20:
  */

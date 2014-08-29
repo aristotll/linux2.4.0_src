@@ -121,18 +121,18 @@ extern inline pte_t * pte_alloc(pmd_t * pmd, unsigned long address)
 {
 	address = (address >> PAGE_SHIFT) & (PTRS_PER_PTE - 1);
 
-	if (pmd_none(*pmd))
+	if (pmd_none(*pmd))  //指针pmd所指向的目录项为空，就要分配一个新的页面表
 		goto getnew;
 	if (pmd_bad(*pmd))
 		goto fix;
 	return (pte_t *)pmd_page(*pmd) + address;
 getnew:
 {
-	unsigned long page = (unsigned long) get_pte_fast();
+	unsigned long page = (unsigned long) get_pte_fast();  //首先在一个缓冲区中找
 	
 	if (!page)
 		return get_pte_slow(pmd, address);
-	set_pmd(pmd, __pmd(_PAGE_TABLE + __pa(page)));
+	set_pmd(pmd, __pmd(_PAGE_TABLE + __pa(page)));  //得到一个新的pmd
 	return (pte_t *)page + address;
 }
 fix:

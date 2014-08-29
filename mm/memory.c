@@ -1094,7 +1094,7 @@ static int do_no_page(struct mm_struct * mm, struct vm_area_struct * vma,
 	struct page * new_page;
 	pte_t entry;
 
-	if (!vma->vm_ops || !vma->vm_ops->nopage)
+	if (!vma->vm_ops || !vma->vm_ops->nopage)  //堆栈的，会进入
 		return do_anonymous_page(mm, vma, page_table, write_access, address);
 
 	/*
@@ -1196,11 +1196,13 @@ int handle_mm_fault(struct mm_struct *mm, struct vm_area_struct * vma,
 	pgd_t *pgd;
 	pmd_t *pmd;
 
-	pgd = pgd_offset(mm, address);
+	pgd = pgd_offset(mm, address);  //计算出该地址所属页面目录的项的指针，可根据该指针得到中间目录项列表
+
 	pmd = pmd_alloc(pgd, address);
 
-	if (pmd) {
-		pte_t * pte = pte_alloc(pmd, address);
+
+	if (pmd) {  //pmd已经构造成功了
+		pte_t * pte = pte_alloc(pmd, address);   //pmd(pgd)项已经构造完成了，剩下pte本身了
 		if (pte)
 			ret = handle_pte_fault(mm, vma, address, write_access, pte);
 	}
