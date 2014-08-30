@@ -108,7 +108,7 @@ ENOSYS = 38
 	popl %eax;	\
 1:	popl %ds;	\
 2:	popl %es;	\
-	addl $4,%esp;	\
+	addl $4,%esp;	\ //加4，主要是跳过ORIG_EAX（中断请求号），然后将esp的值增加来跳过
 3:	iret;		\
 .section .fixup,"ax";	\
 4:	movl $0,(%esp);	\
@@ -214,10 +214,10 @@ ENTRY(ret_from_sys_call)
 #endif
 	jne   handle_softirq
 	
-ret_with_reschedule:
-	cmpl $0,need_resched(%ebx)
-	jne reschedule
-	cmpl $0,sigpending(%ebx)
+ret_with_reschedule:   //用户空间来处理
+	cmpl $0,need_resched(%ebx)   //这里检查，是否需要进程调度，是对need_resched的判断
+	jne reschedule //去调度，调用schedule
+	cmpl $0,sigpending(%ebx) //是否有信号处理
 	jne signal_return
 restore_all:
 	RESTORE_ALL
@@ -229,7 +229,7 @@ signal_return:
 	movl %esp,%eax
 	jne v86_signal_return
 	xorl %edx,%edx
-	call SYMBOL_NAME(do_signal)
+	call SYMBOL_NAME(do_signal)  //调用信号处理程序
 	jmp restore_all
 
 	ALIGN
@@ -271,12 +271,13 @@ ret_from_exception:
 	jne   handle_softirq
 
 ENTRY(ret_from_intr)
-	GET_CURRENT(%ebx)
+	GET_CURRENT(%ebx)   //首先将ebx指向当前进程的task_struct
 	movl EFLAGS(%esp),%eax		# mix EFLAGS and CS
-	movb CS(%esp),%al
+	movb CS(%esp),%al   //拼凑出
+
 	testl $(VM_MASK | 3),%eax	# return to VM86 mode or non-supervisor?
-	jne ret_with_reschedule
-	jmp restore_all
+	jne ret_with_reschedule   //非0，到用户空间
+	jmp restore_all   //在系统空间
 
 	ALIGN
 handle_softirq:
@@ -285,7 +286,7 @@ handle_softirq:
 	
 	ALIGN
 reschedule:
-	call SYMBOL_NAME(schedule)    # test
+	call SYMBOL_NAME(schedule)    # test //执行schedule
 	jmp ret_from_sys_call
 
 ENTRY(divide_error)

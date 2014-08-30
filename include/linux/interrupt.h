@@ -20,7 +20,7 @@ struct irqaction {
 	struct irqaction *next;
 };
 
-
+request_irq
 /* Who gets which entry in bh_base.  Things which will occur most often
    should come first */
    

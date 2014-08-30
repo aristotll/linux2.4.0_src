@@ -92,19 +92,19 @@ extern char _stext, _etext;
 #define __STR(x) #x
 #define STR(x) __STR(x)
 
-#define SAVE_ALL \
+#define SAVE_ALL \  //保存寄存器的内容，其中EFLAGS，SS, SP不保存，
 	"cld\n\t" \
 	"pushl %es\n\t" \
 	"pushl %ds\n\t" \
-	"pushl %eax\n\t" \
+	"pushl %eax\n\t" \ 
 	"pushl %ebp\n\t" \
 	"pushl %edi\n\t" \
 	"pushl %esi\n\t" \
 	"pushl %edx\n\t" \
 	"pushl %ecx\n\t" \
 	"pushl %ebx\n\t" \
-	"movl $" STR(__KERNEL_DS) ",%edx\n\t" \
-	"movl %edx,%ds\n\t" \
+	"movl $" STR(__KERNEL_DS) ",%edx\n\t" \ 
+	"movl %edx,%ds\n\t" \ //改成内核的
 	"movl %edx,%es\n\t"
 
 #define IRQ_NAME2(nr) nr##_interrupt(void)
@@ -149,14 +149,15 @@ SYMBOL_NAME_STR(x) ":\n\t" \
 	"addl $4,%esp\n\t" \
 	"jmp ret_from_intr\n");
 
+//common_interrupt的中断向量进入点
 #define BUILD_COMMON_IRQ() \
 asmlinkage void call_do_IRQ(void); \
 __asm__( \
 	"\n" __ALIGN_STR"\n" \
 	"common_interrupt:\n\t" \
-	SAVE_ALL \
-	"pushl $ret_from_intr\n\t" \
-	SYMBOL_NAME_STR(call_do_IRQ)":\n\t" \
+	SAVE_ALL \  //保存现场，即把中断前夕所有寄存器的内容保存在堆栈中，中断程序完毕后返回
+	"pushl $ret_from_intr\n\t" \   //又压入了一个标号
+	SYMBOL_NAME_STR(call_do_IRQ)":\n\t" \ //do_IRQ会将ret_from_intr的地址压入到堆栈中，来模拟
 	"jmp "SYMBOL_NAME_STR(do_IRQ));
 
 /* 

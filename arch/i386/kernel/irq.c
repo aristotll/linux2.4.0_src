@@ -132,7 +132,7 @@ int get_irq_list(char *buf)
 	char *p = buf;
 
 	p += sprintf(p, "           ");
-	for (j=0; j<smp_num_cpus; j++)
+	for (j=0; j<smp_num;_cpus; j++)
 		p += sprintf(p, "CPU%d       ",j);
 	*p++ = '\n';
 
@@ -431,12 +431,12 @@ int handle_IRQ_event(unsigned int irq, struct pt_regs * regs, struct irqaction *
 
 	status = 1;	/* Force the "do bottom halves" bit */
 
-	if (!(action->flags & SA_INTERRUPT))
+	if (!(action->flags & SA_INTERRUPT))  //开中断下可行
 		__sti();
 
 	do {
 		status |= action->flags;
-		action->handler(irq, action->dev_id, regs);
+		action->handler(irq, action->dev_id, regs); //执行中断服务程序
 		action = action->next;
 	} while (action);
 	if (status & SA_SAMPLE_RANDOM)
@@ -546,7 +546,8 @@ void enable_irq(unsigned int irq)
  * handlers).
  */
 asmlinkage unsigned int do_IRQ(struct pt_regs regs)
-{	
+{	//返回到ret_from_intr
+
 	/* 
 	 * We ack quickly, we don't want the irq controller
 	 * thinking we're snobs just because some other CPU has
@@ -558,30 +559,32 @@ asmlinkage unsigned int do_IRQ(struct pt_regs regs)
 	 * handled by some other CPU. (or is disabled)
 	 */
 	int irq = regs.orig_eax & 0xff; /* high bits used in ret_from_ code  */
+	//屏蔽高位，得到中断号
+	
 	int cpu = smp_processor_id();
 	irq_desc_t *desc = irq_desc + irq;
 	struct irqaction * action;
 	unsigned int status;
 
 	kstat.irqs[cpu][irq]++;
-	spin_lock(&desc->lock);
-	desc->handler->ack(irq);
+	spin_lock(&desc->lock); //多处理器设置的
+	desc->handler->ack(irq);//中断请求上报CPU后，CPU回送一个ack
 	/*
 	   REPLAY is when Linux resends an IRQ that was dropped earlier
 	   WAITING is used by probe to mark irqs that are being tested
 	   */
 	status = desc->status & ~(IRQ_REPLAY | IRQ_WAITING);
-	status |= IRQ_PENDING; /* we _want_ to handle it */
+	status |= IRQ_PENDING; /* we _want_ to handle it */ 
 
 	/*
 	 * If the IRQ is disabled for whatever reason, we cannot
 	 * use the action we have.
 	 */
 	action = NULL;
-	if (!(status & (IRQ_DISABLED | IRQ_INPROGRESS))) {
+	if (!(status & (IRQ_DISABLED | IRQ_INPROGRESS))) { //中断请求服务关闭或IRQ_INPROGRESS为1时action为空
 		action = desc->action;
-		status &= ~IRQ_PENDING; /* we commit to handling */
-		status |= IRQ_INPROGRESS; /* we are handling it */
+		status &= ~IRQ_PENDING; /* we commit to handling */ //清0， 不处理
+		status |= IRQ_INPROGRESS; /* we are handling it */ //已经处理了
 	}
 	desc->status = status;
 
@@ -606,7 +609,7 @@ asmlinkage unsigned int do_IRQ(struct pt_regs regs)
 	 */
 	for (;;) {
 		spin_unlock(&desc->lock);
-		handle_IRQ_event(irq, &regs, action);
+		handle_IRQ_event(irq, &regs, action); //依次执行队列中的各个中断服务程序
 		spin_lock(&desc->lock);
 		
 		if (!(desc->status & IRQ_PENDING))
@@ -622,8 +625,8 @@ out:
 	desc->handler->end(irq);
 	spin_unlock(&desc->lock);
 
-	if (softirq_active(cpu) & softirq_mask(cpu))
-		do_softirq();
+	if (softirq_active(cpu) & softirq_mask(cpu)) //软中断，此时可执行了
+		do_softirq(); 
 	return 1;
 }
 
@@ -659,6 +662,7 @@ out:
  *
  */
  
+//真正的中断服务程序是通过该函数来注册的
 int request_irq(unsigned int irq, 
 		void (*handler)(int, void *, struct pt_regs *),
 		unsigned long irqflags, 
@@ -676,7 +680,7 @@ int request_irq(unsigned int irq,
 	 * interrupt freeing logic etc).
 	 */
 	if (irqflags & SA_SHIRQ) {
-		if (!dev_id)
+		if (!dev_id)  //如果是共享中断向量，就需要dev_id来区别
 			printk("Bad boy: %s (at 0x%x) called us without a dev_id!\n", devname, (&irq)[-1]);
 	}
 #endif
@@ -698,7 +702,7 @@ int request_irq(unsigned int irq,
 	action->next = NULL;
 	action->dev_id = dev_id;
 
-	retval = setup_irq(irq, action);
+	retval = setup_irq(irq, action); //链入到中断请求队列中
 	if (retval)
 		kfree(action);
 	return retval;
@@ -961,14 +965,14 @@ int setup_irq(unsigned int irq, struct irqaction * new)
 	int shared = 0;
 	unsigned long flags;
 	struct irqaction *old, **p;
-	irq_desc_t *desc = irq_desc + irq;
+	irq_desc_t *desc = irq_desc + irq;  //根据传入的irq得到中断向量的引脚
 
 	/*
 	 * Some drivers like serial.c use request_irq() heavily,
 	 * so we have to be careful not to interfere with a
 	 * running system.
 	 */
-	if (new->flags & SA_SAMPLE_RANDOM) {
+	if (new->flags & SA_SAMPLE_RANDOM) { //引入随机性
 		/*
 		 * This function might sleep, we want to call it first,
 		 * outside of the atomic block.
@@ -984,10 +988,10 @@ int setup_irq(unsigned int irq, struct irqaction * new)
 	 * The following block of code has to be executed atomically
 	 */
 	spin_lock_irqsave(&desc->lock,flags);
-	p = &desc->action;
+	p = &desc->action;		//得到引脚中的中断服务链表
 	if ((old = *p) != NULL) {
 		/* Can't share interrupts unless both agree to */
-		if (!(old->flags & new->flags & SA_SHIRQ)) {
+		if (!(old->flags & new->flags & SA_SHIRQ)) {  //新的中断的flags和旧的中断，是否可以共用共享
 			spin_unlock_irqrestore(&desc->lock,flags);
 			return -EBUSY;
 		}
@@ -997,15 +1001,15 @@ int setup_irq(unsigned int irq, struct irqaction * new)
 			p = &old->next;
 			old = *p;
 		} while (old);
-		shared = 1;
+		shared = 1; //可共享
 	}
 
-	*p = new;
+	*p = new;  //插入到队列的尾部，也有可能是第一个
 
-	if (!shared) {
-		desc->depth = 0;
+	if (!shared) {  //第一个
+		desc->depth = 0; //没有中断被禁止的
 		desc->status &= ~(IRQ_DISABLED | IRQ_AUTODETECT | IRQ_WAITING);
-		desc->handler->startup(irq);
+		desc->handler->startup(irq); //调用中断控制器的startup来首次启用该中断
 	}
 	spin_unlock_irqrestore(&desc->lock,flags);
 

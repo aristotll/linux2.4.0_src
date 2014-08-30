@@ -44,15 +44,18 @@ typedef struct hw_interrupt_type  hw_irq_controller;
  *
  * Pad this out to 32 bytes for cache and indexing reasons.
  */
+
+//每一个中断向量都有一个中断请求队列
 typedef struct {
 	unsigned int status;		/* IRQ status */
-	hw_irq_controller *handler;
-	struct irqaction *action;	/* IRQ action list */
+	hw_irq_controller *handler; //指向中断控制器，有enable, disable或end等
+	struct irqaction *action;	/* IRQ action list */ //中断服务程序组成的单链表
 	unsigned int depth;		/* nested irq disables */
 	spinlock_t lock;
 } ____cacheline_aligned irq_desc_t;
 
-extern irq_desc_t irq_desc [NR_IRQS];
+init_IRQ
+extern irq_desc_t irq_desc [NR_IRQS]; //因此有224的这样的中断请求队列
 
 #include <asm/hw_irq.h> /* the arch dependent stuff */
 

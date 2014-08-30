@@ -813,9 +813,11 @@ IRQ_NAME
  * Pentium F0 0F bugfix can have resulted in the mapped
  * IDT being write-protected.
  */
+common_interrupt
+
 void set_intr_gate(unsigned int n, void *addr)
 {
-	_set_gate(idt_table+n,14,0,addr);   //1 110, 
+	_set_gate(idt_table+n,14,0,addr);   //1 110, DPL为0，用户看哦个那进可能通过不了 
 }
 page_fault
 static void __init set_trap_gate(unsigned int n, void *addr)

@@ -425,7 +425,7 @@ void __init init_ISA_irqs (void)
 			/*
 			 * 16 old-style INTA-cycle interrupts:
 			 */
-			irq_desc[i].handler = &i8259A_irq_type;
+			irq_desc[i].handler = &i8259A_irq_type; //enable,disable,end等函数
 		} else {
 			/*
 			 * 'high' PCI IRQs filled in on demand
@@ -440,7 +440,7 @@ void __init init_IRQ(void)
 	int i;
 
 #ifndef CONFIG_X86_VISWS_APIC
-	init_ISA_irqs();
+	init_ISA_irqs(); //初始化224个irq_desc
 #else
 	init_VISWS_APIC_irqs();
 #endif
