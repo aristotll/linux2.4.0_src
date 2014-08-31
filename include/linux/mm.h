@@ -40,14 +40,14 @@ extern struct list_head inactive_dirty_list;
  */
 struct vm_area_struct {
 	struct mm_struct * vm_mm;	/* VM area parameters */
-	unsigned long vm_start;
-	unsigned long vm_end;
+	unsigned long vm_start;   //决定了一个虚拟区间，在内
+	unsigned long vm_end;    //不在内
 
 	/* linked list of VM areas per task, sorted by address */
 	struct vm_area_struct *vm_next;
 
-	pgprot_t vm_page_prot;
-	unsigned long vm_flags;
+	pgprot_t vm_page_prot;     //页面状态信息
+	unsigned long vm_flags;   //、、
 
 	/* AVL tree of VM areas per task, sorted by address */
 	short vm_avl_height;
@@ -58,10 +58,12 @@ struct vm_area_struct {
 	 * one of the address_space->i_mmap{,shared} lists,
 	 * for shm areas, the list of attaches, otherwise unused.
 	 */
-	struct vm_area_struct *vm_next_share;
+	struct vm_area_struct *vm_next_share;   //用于页面交换等
 	struct vm_area_struct **vm_pprev_share;
 
 	struct vm_operations_struct * vm_ops;
+	//里面的操作，分别用于虚存区间的打开，关闭，建立映射，其中nopage表示页面不在内存，引起页面异常错误
+	
 	unsigned long vm_pgoff;		/* offset in PAGE_SIZE units, *not* PAGE_CACHE_SIZE */
 	struct file * vm_file;
 	unsigned long vm_raend;
@@ -120,7 +122,8 @@ extern pgprot_t protection_map[16];
 struct vm_operations_struct {
 	void (*open)(struct vm_area_struct * area);
 	void (*close)(struct vm_area_struct * area);
-	struct page * (*nopage)(struct vm_area_struct * area, unsigned long address, int write_access);
+	struct page * (*nopage)(struct vm_area_struct * area, unsigned long address, int write_access);  
+	//页面不在内存，引起页面异常错误
 };
 
 /*
@@ -134,7 +137,7 @@ struct vm_operations_struct {
 typedef struct page {
 	struct list_head list;
 	struct address_space *mapping;
-	unsigned long index;
+	unsigned long index;  //当页面来自一个文件的时候，代表该页面在文件中的序号；其中还代表着页面的去向
 	struct page *next_hash;
 	atomic_t count;
 	unsigned long flags;	/* atomic flags, some possibly updated asynchronously */

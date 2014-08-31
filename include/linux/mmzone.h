@@ -26,7 +26,7 @@ typedef struct zone_struct {
 	 * Commonly accessed fields:
 	 */
 	spinlock_t		lock;
-	unsigned long		offset;
+	unsigned long		offset;  //表示在mem_map数组中的起始号
 	unsigned long		free_pages;
 	unsigned long		inactive_clean_pages;
 	unsigned long		inactive_dirty_pages;
@@ -36,7 +36,7 @@ typedef struct zone_struct {
 	 * free areas of different sizes
 	 */
 	struct list_head	inactive_clean_list;
-	free_area_t		free_area[MAX_ORDER];
+	free_area_t		free_area[MAX_ORDER];  //有一组空闲区间队列，主要是分块的管理页面
 
 	/*
 	 * rarely used fields:
@@ -46,7 +46,7 @@ typedef struct zone_struct {
 	/*
 	 * Discontig memory support fields.
 	 */
-	struct pglist_data	*zone_pgdat;
+	struct pglist_data	*zone_pgdat;   
 	unsigned long		zone_start_paddr;
 	unsigned long		zone_start_mapnr;
 	struct page		*zone_mem_map;
@@ -77,16 +77,16 @@ typedef struct zonelist_struct {
 
 struct bootmem_data;
 typedef struct pglist_data {
-	zone_t node_zones[MAX_NR_ZONES];
-	zonelist_t node_zonelists[NR_GFPINDEX];
-	struct page *node_mem_map;
+	zone_t node_zones[MAX_NR_ZONES];  //至少有两个页面管理区
+	zonelist_t node_zonelists[NR_GFPINDEX];  //尝试不同的页面管理区，先尝试本地的，然后是其他的
+	struct page *node_mem_map;   //指向具体的page结构数组
 	unsigned long *valid_addr_bitmap;
 	struct bootmem_data *bdata;
 	unsigned long node_start_paddr;
 	unsigned long node_start_mapnr;
 	unsigned long node_size;
 	int node_id;
-	struct pglist_data *node_next;
+	struct pglist_data *node_next; //形成单链表
 } pg_data_t;
 
 extern int numnodes;

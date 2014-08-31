@@ -102,17 +102,19 @@ retry:
 
 static spinlock_t softirq_mask_lock = SPIN_LOCK_UNLOCKED;
 
+//设置了一个以软件中断号为下标的数组softirq_vec[],类似于中断机制中的irq_desc
 void open_softirq(int nr, void (*action)(struct softirq_action*), void *data)
 {
 	unsigned long flags;
 	int i;
 
+	irq_stat
 	spin_lock_irqsave(&softirq_mask_lock, flags);
 	softirq_vec[nr].data = data;
 	softirq_vec[nr].action = action;
 
 	for (i=0; i<NR_CPUS; i++)
-		softirq_mask(i) |= (1<<nr);
+		softirq_mask(i) |= (1<<nr);  //把所有的CPU中断屏蔽控制器设成了1
 	spin_unlock_irqrestore(&softirq_mask_lock, flags);
 }
 
@@ -268,8 +270,8 @@ resched:
 
 void init_bh(int nr, void (*routine)(void))
 {
-	bh_base[nr] = routine;
-	mb();
+	bh_base[nr] = routine;  //挂钩对应的执行函数
+	mb();  //与流水线有关
 }
 
 void remove_bh(int nr)
@@ -283,12 +285,13 @@ void __init softirq_init()
 	int i;
 
 	for (i=0; i<32; i++)
-		tasklet_init(bh_task_vec+i, bh_action, i);
+		tasklet_init(bh_task_vec+i, bh_action, i);  //先是将内核定义的tasklet来进行初始化，函数执行全局的bh_action
 
 	open_softirq(TASKLET_SOFTIRQ, tasklet_action, NULL);
 	open_softirq(HI_SOFTIRQ, tasklet_hi_action, NULL);
 }
 
+init_bh
 void __run_task_queue(task_queue *list)
 {
 	struct list_head head, *next;

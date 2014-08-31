@@ -114,12 +114,13 @@ extern void softirq_init(void);
      he makes it with spinlocks.
  */
 
+//多序的，它允许不同cpu执行tasklet，但必须是不同的tasklet
 struct tasklet_struct
 {
 	struct tasklet_struct *next;
 	unsigned long state;
-	atomic_t count;
-	void (*func)(unsigned long);
+	atomic_t count;         //使用计数
+	void (*func)(unsigned long);   //指向执行函数
 	unsigned long data;
 };
 

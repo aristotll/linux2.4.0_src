@@ -42,17 +42,18 @@ typedef struct { unsigned long long pmd; } pmd_t;
 typedef struct { unsigned long long pgd; } pgd_t;
 #define pte_val(x)	((x).pte_low | ((unsigned long long)(x).pte_high << 32))
 #else
-typedef struct { unsigned long pte_low; } pte_t;
+typedef struct { unsigned long pte_low; } pte_t;  //32位时，pgd_t, pmd_t, pte_t都是长整数
 typedef struct { unsigned long pmd; } pmd_t;
 typedef struct { unsigned long pgd; } pgd_t;
-#define pte_val(x)	((x).pte_low)
+
+#define pte_val(x)	((x).pte_low)  //获得结构的成分
 #endif
 #define PTE_MASK	PAGE_MASK
 
-typedef struct { unsigned long pgprot; } pgprot_t;
+typedef struct { unsigned long pgprot; } pgprot_t;  //页面状态信息
 
-#define pmd_val(x)	((x).pmd)
-#define pgd_val(x)	((x).pgd)
+#define pmd_val(x)	((x).pmd)     //获得结构成分
+#define pgd_val(x)	((x).pgd)     
 #define pgprot_val(x)	((x).pgprot)
 
 #define __pte(x) ((pte_t) { (x) } )

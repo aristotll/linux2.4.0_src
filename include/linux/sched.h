@@ -200,19 +200,20 @@ struct files_struct {
 /* Number of map areas at which the AVL tree is activated. This is arbitrary. */
 #define AVL_MIN_MAP_COUNT	32
 
-struct mm_struct {
+struct mm_struct {  //是整个用户空间的抽象
 	struct vm_area_struct * mmap;		/* list of VMAs */
 	struct vm_area_struct * mmap_avl;	/* tree of VMAs */
-	struct vm_area_struct * mmap_cache;	/* last find_vma result */
+	struct vm_area_struct * mmap_cache;	/* last find_vma result */  //用来表示最近访问的一个虚存空间
 	pgd_t * pgd;
 	atomic_t mm_users;			/* How many users with user space? */
 	atomic_t mm_count;			/* How many references to "struct mm_struct" (users count as 1) */
 	int map_count;				/* number of VMAs */
-	struct semaphore mmap_sem;
+	struct semaphore mmap_sem;  //互斥访问时
 	spinlock_t page_table_lock;
 
 	struct list_head mmlist;		/* List of all active mm's */
 
+	//进程映像中代码段，数据段
 	unsigned long start_code, end_code, start_data, end_data;
 	unsigned long start_brk, brk, start_stack;
 	unsigned long arg_start, arg_end, env_start, env_end;

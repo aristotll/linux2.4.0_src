@@ -7,8 +7,8 @@
 
 /* entry.S is sensitive to the offsets of these fields */
 typedef struct {
-	unsigned int __softirq_active;
-	unsigned int __softirq_mask;
+	unsigned int __softirq_active;  //软中断请求寄存器
+	unsigned int __softirq_mask;   //软中断屏蔽寄存器
 	unsigned int __local_irq_count;
 	unsigned int __local_bh_count;
 	unsigned int __syscall_count;
