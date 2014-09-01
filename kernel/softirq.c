@@ -45,20 +45,27 @@
 irq_cpustat_t irq_stat[NR_CPUS];
 #endif	/* CONFIG_ARCH_S390 */
 
-static struct softirq_action softirq_vec[32] __cacheline_aligned;
+static struct softirq_action softirq_vec[32] __cacheline_aligned;  //也设置了32个
 
-asmlinkage void do_softirq()
+//tasklet_action
+
+//这个是tasklet_init初始化的
+asmlinkage void do_softirq()  //执行软中断函数
 {
 	int cpu = smp_processor_id();
 	__u32 active, mask;
 
-	if (in_interrupt())
+	if (in_interrupt())  //不能在一个硬中断服务程序中运行，也不能在一个软中断服务程序中运行
 		return;
+
+	//到这里，不同的cpu是可以进入同一个软中断服务程序的，但是不能相互干扰
 
 	local_bh_disable();
 
 	local_irq_disable();
+
 	mask = softirq_mask(cpu);
+	
 	active = softirq_active(cpu) & mask;
 
 	if (active) {
@@ -75,9 +82,11 @@ restart:
 
 		do {
 			if (active & 1)
-				h->action(h);
+				h->action(h);  //不同的cpu可以进入不同的bh	
+			//bh_action
+			//tasklet_action
 			h++;
-			active >>= 1;
+			active >>= 1;  //来移位
 		} while (active);
 
 		local_irq_disable();
@@ -108,13 +117,14 @@ void open_softirq(int nr, void (*action)(struct softirq_action*), void *data)
 	unsigned long flags;
 	int i;
 
-	irq_stat
+
+	tasklet_hi_vec
 	spin_lock_irqsave(&softirq_mask_lock, flags);
-	softirq_vec[nr].data = data;
-	softirq_vec[nr].action = action;
+	softirq_vec[nr].data = data;      //先送入对应的nr中的参数
+	softirq_vec[nr].action = action;  //以及函数
 
 	for (i=0; i<NR_CPUS; i++)
-		softirq_mask(i) |= (1<<nr);  //把所有的CPU中断屏蔽控制器设成了1
+		softirq_mask(i) |= (1<<nr);   //把所有的CPU软中断屏蔽控制器中的nr设成了1
 	spin_unlock_irqrestore(&softirq_mask_lock, flags);
 }
 
@@ -123,13 +133,14 @@ void open_softirq(int nr, void (*action)(struct softirq_action*), void *data)
 
 struct tasklet_head tasklet_vec[NR_CPUS] __cacheline_aligned;
 
+//这个是open_softirq注册的
 static void tasklet_action(struct softirq_action *a)
 {
 	int cpu = smp_processor_id();
 	struct tasklet_struct *list;
 
 	local_irq_disable();
-	list = tasklet_vec[cpu].list;
+	list = tasklet_vec[cpu].list;  //得到每一个tasklet_vec的链表
 	tasklet_vec[cpu].list = NULL;
 	local_irq_enable();
 
@@ -142,7 +153,7 @@ static void tasklet_action(struct softirq_action *a)
 			if (atomic_read(&t->count) == 0) {
 				clear_bit(TASKLET_STATE_SCHED, &t->state);
 
-				t->func(t->data);
+				t->func(t->data); //执行相应的函数
 				/*
 				 * talklet_trylock() uses test_and_set_bit that imply
 				 * an mb when it returns zero, thus we need the explicit
@@ -166,7 +177,11 @@ static void tasklet_action(struct softirq_action *a)
 
 
 
+
 struct tasklet_head tasklet_hi_vec[NR_CPUS] __cacheline_aligned;
+//每一个cpu都有这样的一个头，其实就是指向tasklet_struct
+//
+
 
 static void tasklet_hi_action(struct softirq_action *a)
 {
@@ -249,13 +264,13 @@ static void bh_action(unsigned long nr)
 {
 	int cpu = smp_processor_id();
 
-	if (!spin_trylock(&global_bh_lock))
+	if (!spin_trylock(&global_bh_lock))  //控制单个cpu进入执行的
 		goto resched;
 
-	if (!hardirq_trylock(cpu))
+	if (!hardirq_trylock(cpu))  //防止一个硬中断程序内部调用一个bh
 		goto resched_unlock;
 
-	if (bh_base[nr])
+	if (bh_base[nr])   //执行放入的函数
 		bh_base[nr]();
 
 	hardirq_endlock(cpu);
@@ -270,9 +285,11 @@ resched:
 
 void init_bh(int nr, void (*routine)(void))
 {
-	bh_base[nr] = routine;  //挂钩对应的执行函数
-	mb();  //与流水线有关
+	bh_base[nr] = routine;  //根据nr，挂钩对应的具体的软中断服务程序
+	mb();   //与流水线有关
 }
+
+mark_bh
 
 void remove_bh(int nr)
 {
@@ -284,13 +301,15 @@ void __init softirq_init()
 {
 	int i;
 
-	for (i=0; i<32; i++)
+	for (i=0; i<32; i++)  //bh_task_vec是一个以tasklet的数组
 		tasklet_init(bh_task_vec+i, bh_action, i);  //先是将内核定义的tasklet来进行初始化，函数执行全局的bh_action
 
-	open_softirq(TASKLET_SOFTIRQ, tasklet_action, NULL);
+	//先分别设置软中断向量中的两种
+	open_softirq(TASKLET_SOFTIRQ, tasklet_action, NULL); //代表着一种称为tasklet的机制
 	open_softirq(HI_SOFTIRQ, tasklet_hi_action, NULL);
 }
 
+init_bh
 init_bh
 void __run_task_queue(task_queue *list)
 {

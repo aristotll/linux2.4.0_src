@@ -21,7 +21,8 @@ typedef struct {
  * Are we in an interrupt context? Either doing bottom half
  * or hardware interrupt processing?
  */
-#define in_interrupt() ({ int __cpu = smp_processor_id(); \
+#define in_interrupt() ({ int __cpu = smp_processor_id(); \									
+			//来判断是否在软硬中断服务程序中
 	(local_irq_count(__cpu) + local_bh_count(__cpu) != 0); })
 
 #define in_irq() (local_irq_count(smp_processor_id()) != 0)

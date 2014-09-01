@@ -56,7 +56,7 @@ enum {
 enum
 {
 	HI_SOFTIRQ=0,
-	NET_TX_SOFTIRQ,
+	NET_TX_SOFTIRQ,//跟网络有关系
 	NET_RX_SOFTIRQ,
 	TASKLET_SOFTIRQ
 };
@@ -76,7 +76,7 @@ extern void open_softirq(int nr, void (*action)(struct softirq_action*), void *d
 
 static inline void __cpu_raise_softirq(int cpu, int nr)
 {
-	softirq_active(cpu) |= (1<<nr);
+	softirq_active(cpu) |= (1<<nr);  //软中断请求控制器的nr设成1
 }
 
 
@@ -139,7 +139,7 @@ enum
 
 struct tasklet_head
 {
-	struct tasklet_struct *list;
+	struct tasklet_struct *list;   
 } __attribute__ ((__aligned__(SMP_CACHE_BYTES)));
 
 extern struct tasklet_head tasklet_vec[NR_CPUS];
@@ -171,16 +171,18 @@ static inline void tasklet_schedule(struct tasklet_struct *t)
 
 static inline void tasklet_hi_schedule(struct tasklet_struct *t)
 {
-	if (!test_and_set_bit(TASKLET_STATE_SCHED, &t->state)) {
-		int cpu = smp_processor_id();
+	if (!test_and_set_bit(TASKLET_STATE_SCHED, &t->state)) {  //使用TASKLET_STATE_SCHED来表示只能被调用一次
+		int cpu = smp_processor_id();  //返回当前的cpu
 		unsigned long flags;
 
 		local_irq_save(flags);
-		t->next = tasklet_hi_vec[cpu].list;
+
+		t->next = tasklet_hi_vec[cpu].list;  //链入到对应的cpu的软中断执行链表，只能代表一个运行，不可能多个cpu执行；
 		tasklet_hi_vec[cpu].list = t;
-		__cpu_raise_softirq(cpu, HI_SOFTIRQ);
+		
+		__cpu_raise_softirq(cpu, HI_SOFTIRQ);  //软中断请求控制器设置成1
 		local_irq_restore(flags);
-	}
+	}  
 }
 
 
@@ -230,9 +232,9 @@ extern struct tasklet_struct bh_task_vec[];
 /* It is exported _ONLY_ for wait_on_irq(). */
 extern spinlock_t global_bh_lock;
 
-static inline void mark_bh(int nr)
+static inline void mark_bh(int nr) //执行一个特定的bh函数
 {
-	tasklet_hi_schedule(bh_task_vec+nr);
+	tasklet_hi_schedule(bh_task_vec+nr); 
 }
 
 extern void init_bh(int nr, void (*routine)(void));
