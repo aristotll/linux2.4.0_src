@@ -516,7 +516,8 @@ static void __init smp_init(void)
 /*
  *	Activate the first processor.
  */
- 
+
+//在start_kernel中
 asmlinkage void __init start_kernel(void)
 {
 	char * command_line;
@@ -531,11 +532,11 @@ asmlinkage void __init start_kernel(void)
 	setup_arch(&command_line);
 	printk("Kernel command line: %s\n", saved_command_line);
 	parse_options(command_line);
-	trap_init();
-	init_IRQ();
-	sched_init();
-	time_init();
-	softirq_init();
+	trap_init();	//异常向量初始化
+	init_IRQ();		//中断向量初始化
+	sched_init();	//调度机制初始化
+	time_init();	//时钟初始化
+	softirq_init();	//软中断初始化
 
 	/*
 	 * HACK ALERT! This is early. We're enabling the console before

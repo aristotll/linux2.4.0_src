@@ -169,6 +169,8 @@ static inline void tasklet_schedule(struct tasklet_struct *t)
 	}
 }
 
+//bh_action
+
 static inline void tasklet_hi_schedule(struct tasklet_struct *t)
 {
 	if (!test_and_set_bit(TASKLET_STATE_SCHED, &t->state)) {  //使用TASKLET_STATE_SCHED来表示只能被调用一次
@@ -234,7 +236,8 @@ extern spinlock_t global_bh_lock;
 
 static inline void mark_bh(int nr) //执行一个特定的bh函数
 {
-	tasklet_hi_schedule(bh_task_vec+nr); 
+	tasklet_hi_schedule(bh_task_vec+nr); //将nr挂入到tasklet队列中
+
 }
 
 extern void init_bh(int nr, void (*routine)(void));

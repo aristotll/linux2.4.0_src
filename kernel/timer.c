@@ -665,19 +665,20 @@ static inline void update_times(void)
 	calc_load(ticks);
 }
 
-void timer_bh(void)
+void timer_bh(void)  //放入的函数
 {
-	update_times();
-	run_timer_list();
+	update_times(); //处理实时时钟的xtime值
+	run_timer_list();  //检查系统中设置的定时器
+	//softirq_init
 }
 
 void do_timer(struct pt_regs *regs)
 {
-	(*(unsigned long *)&jiffies)++;
+	(*(unsigned long *)&jiffies)++; //这会被翻译成一条对内存单元的inc指令
 #ifndef CONFIG_SMP
 	/* SMP process accounting uses the local APIC timer */
 
-	update_process_times(user_mode(regs));
+	update_process_times(user_mode(regs)); //与进程调度有关
 #endif
 	mark_bh(TIMER_BH);
 	if (TQ_ACTIVE(tq_timer))

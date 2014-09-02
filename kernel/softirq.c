@@ -283,13 +283,14 @@ resched:
 	mark_bh(nr);
 }
 
+//mark_bh
 void init_bh(int nr, void (*routine)(void))
 {
-	bh_base[nr] = routine;  //根据nr，挂钩对应的具体的软中断服务程序
+	bh_base[nr] = routine;  //根据nr，挂钩对应的具体的软中断服务程序, bh_base一个函数指针数组
 	mb();   //与流水线有关
 }
 
-mark_bh
+//mark_bh
 
 void remove_bh(int nr)
 {
@@ -297,12 +298,14 @@ void remove_bh(int nr)
 	bh_base[nr] = NULL;
 }
 
+//init_bh
 void __init softirq_init()
 {
 	int i;
 
 	for (i=0; i<32; i++)  //bh_task_vec是一个以tasklet的数组
-		tasklet_init(bh_task_vec+i, bh_action, i);  //先是将内核定义的tasklet来进行初始化，函数执行全局的bh_action
+		tasklet_init(bh_task_vec+i, bh_action, i);
+	//先是将内核定义的tasklet_struct来进行初始化，函数执行全局的bh_action
 
 	//先分别设置软中断向量中的两种
 	open_softirq(TASKLET_SOFTIRQ, tasklet_action, NULL); //代表着一种称为tasklet的机制

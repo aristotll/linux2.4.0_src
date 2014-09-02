@@ -1257,7 +1257,7 @@ void __init sched_init(void)
 
 	init_timervecs();
 
-	init_bh(TIMER_BH, timer_bh);
+	init_bh(TIMER_BH, timer_bh);   //先初始化三个bh
 	init_bh(TQUEUE_BH, tqueue_bh);
 	init_bh(IMMEDIATE_BH, immediate_bh);
 

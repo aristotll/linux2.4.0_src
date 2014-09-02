@@ -383,7 +383,8 @@ int timer_ack;
  */
 static inline void do_timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
 {
-#ifdef CONFIG_X86_IO_APIC
+	//SMP中采用APIC
+#ifdef CONFIG_X86_IO_APIC  
 	if (timer_ack) {
 		/*
 		 * Subtle, when I/O APICs are used we have to ack timer IRQ
@@ -544,6 +545,7 @@ unsigned long get_cmos_time(void)
 	return mktime(year, mon, day, hour, min, sec);
 }
 
+//中断请求0为时钟中断专用，因为没有SA_SHIRQ，且不允许被中断SA_INTERRUPT为1
 static struct irqaction irq0  = { timer_interrupt, SA_INTERRUPT, 0, "timer", NULL, NULL};
 
 /* ------ Calibrate the TSC ------- 
@@ -627,7 +629,7 @@ void __init time_init(void)
 {
 	extern int x86_udelay_tsc;
 	
-	xtime.tv_sec = get_cmos_time();
+	xtime.tv_sec = get_cmos_time();  //先获得当时的时间，它一个相对于某一个时间的绝对时间
 	xtime.tv_usec = 0;
 
 /*
