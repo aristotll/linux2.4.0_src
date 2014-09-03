@@ -28,6 +28,7 @@ static struct address_space_operations swap_aops = {
 	sync_page: block_sync_page,
 };
 
+//初始化这个队列
 struct address_space swapper_space = {
 	LIST_HEAD_INIT(swapper_space.clean_pages),
 	LIST_HEAD_INIT(swapper_space.dirty_pages),
@@ -51,6 +52,7 @@ void show_swap_cache_info(void)
 }
 #endif
 
+//现在内存分配了一个page以后，怎样将swap_entry_t链入到队列中去
 void add_to_swap_cache(struct page *page, swp_entry_t entry)
 {
 	unsigned long flags;
@@ -62,7 +64,7 @@ void add_to_swap_cache(struct page *page, swp_entry_t entry)
 		BUG();
 	if (PageTestandSetSwapCache(page))
 		BUG();
-	if (page->mapping)
+	if (page->mapping)  //address_space应该为0
 		BUG();
 	flags = page->flags & ~((1 << PG_error) | (1 << PG_arch_1));
 	page->flags = flags | (1 << PG_uptodate);

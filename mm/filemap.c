@@ -60,8 +60,10 @@ static void add_page_to_hash_queue(struct page * page, struct page **p)
 	struct page *next = *p;
 
 	*p = page;
-	page->next_hash = next;
+
+	page->next_hash = next; //链入到某个杂凑队列
 	page->pprev_hash = p;
+
 	if (next)
 		next->pprev_hash = &page->next_hash;
 	if (page->buffers)
@@ -71,9 +73,10 @@ static void add_page_to_hash_queue(struct page * page, struct page **p)
 
 static inline void add_page_to_inode_queue(struct address_space *mapping, struct page * page)
 {
-	struct list_head *head = &mapping->clean_pages;
+	struct list_head *head = &mapping->clean_pages;  //先链入到干净的队列中，刚从交换设备读入的页面是干净的
 
 	mapping->nrpages++;
+
 	list_add(&page->list, head);
 	page->mapping = mapping;
 }
@@ -484,12 +487,13 @@ void add_to_page_cache_locked(struct page * page, struct address_space *mapping,
 	if (!PageLocked(page))
 		BUG();
 
+	//address_space
 	page_cache_get(page);
 	spin_lock(&pagecache_lock);
 	page->index = index;
-	add_page_to_inode_queue(mapping, page);
-	add_page_to_hash_queue(page, page_hash(mapping, index));
-	lru_cache_add(page);
+	add_page_to_inode_queue(mapping, page);  //放入全局的swapper_space的clean队列中
+	add_page_to_hash_queue(page, page_hash(mapping, index)); //链入到某个杂凑队列中
+	lru_cache_add(page);					//链入到内核的LRU队列active_list中
 	spin_unlock(&pagecache_lock);
 }
 

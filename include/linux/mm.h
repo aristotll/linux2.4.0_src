@@ -141,7 +141,7 @@ typedef struct page {
 	struct page *next_hash;
 	atomic_t count;
 	unsigned long flags;	/* atomic flags, some possibly updated asynchronously */
-	struct list_head lru;
+	struct list_head lru;  //指向内核全局的active_list
 	unsigned long age;
 	wait_queue_head_t wait;
 	struct page **pprev_hash;

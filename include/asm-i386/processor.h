@@ -445,7 +445,9 @@ unsigned long get_wchan(struct task_struct *p);
 #define KSTK_ESP(tsk)	(((unsigned long *)(4096+(unsigned long)(tsk)))[1022])
 
 #define THREAD_SIZE (2*PAGE_SIZE)
-#define alloc_task_struct() ((struct task_struct *) __get_free_pages(GFP_KERNEL,1))
+#define alloc_task_struct() ((struct task_struct *) __get_free_pages(GFP_KERNEL,1))  
+//申请的是两个页面，而并非仅仅是一个task_struct结构体
+
 #define free_task_struct(p) free_pages((unsigned long) (p), 1)
 #define get_task_struct(tsk)      atomic_inc(&virt_to_page(tsk)->count)
 

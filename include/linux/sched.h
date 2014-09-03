@@ -274,20 +274,29 @@ struct user_struct {
 
 extern struct user_struct root_user;
 #define INIT_USER (&root_user)
+//alloc_task_struct
 
+//kernel_thread
+
+//在linux中，如果一个进程没有专用的用户空间，那它也就成了线程；
+//完全没有用户空间，就称为内核线程，共享用户空间也就是用户线程
 struct task_struct {
 	/*
 	 * offsets of these are hardcoded elsewhere - touch with care
 	 */
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
-	unsigned long flags;	/* per process flags, defined below */
-	int sigpending;
+	
+	unsigned long flags;	/* per process flags, defined below */ //反映的是进程状态的信息，与管理有关的信息
+	//如PF_DUMPCORE，PF_MEMALLOC等
+
+	int sigpending;		//进程收到了信号但尚未处理
+
 	mm_segment_t addr_limit;	/* thread address space:
 					 	0-0xBFFFFFFF for user-thead
 						0-0xFFFFFFFF for kernel-thread
 					 */
 	struct exec_domain *exec_domain;
-	volatile long need_resched;
+	volatile long need_resched;	//调度
 	unsigned long ptrace;
 
 	int lock_depth;		/* Lock depth */
@@ -310,19 +319,22 @@ struct task_struct {
 	struct list_head run_list;
 	unsigned long sleep_time;
 
+	//链入到一个线性队列中
 	struct task_struct *next_task, *prev_task;
+	
 	struct mm_struct *active_mm;
 
 /* task state */
-	struct linux_binfmt *binfmt;
-	int exit_code, exit_signal;
+	struct linux_binfmt *binfmt;  //应用程序的文件格式
+	int exit_code, exit_signal;		//供系统调用exit()以及wait4()使用
 	int pdeath_signal;  /*  The signal sent when the parent dies  */
 	/* ??? */
 	unsigned long personality;
 	int dumpable:1;
 	int did_exec:1;
-	pid_t pid;
-	pid_t pgrp;
+
+	pid_t pid;		//进程号
+	pid_t pgrp;		//当一个用户登录到系统时，就开始了一个进程组，此后创建的这个进程都属于这个session
 	pid_t tty_old_pgrp;
 	pid_t session;
 	pid_t tgid;
@@ -334,9 +346,13 @@ struct task_struct {
 	 * p->p_pptr->pid)
 	 */
 	struct task_struct *p_opptr, *p_pptr, *p_cptr, *p_ysptr, *p_osptr;
+	//p_opptr和p_pptr指向父进程；p_cptr指向最年轻的子进程；p_ysptr和p_opptr分别指向其哥哥和弟弟
+
+
 	struct list_head thread_group;
 
 	/* PID hash table linkage. */
+	//链入到杂凑表的某个队列中，同一队列中的所有进程的pid具有相同的杂凑值
 	struct task_struct *pidhash_next;
 	struct task_struct **pidhash_pprev;
 
@@ -353,15 +369,15 @@ struct task_struct {
 	unsigned long min_flt, maj_flt, nswap, cmin_flt, cmaj_flt, cnswap;
 	int swappable:1;
 /* process credentials */
-	uid_t uid,euid,suid,fsuid;
+	uid_t uid,euid,suid,fsuid;  //与文件操作权限有关
 	gid_t gid,egid,sgid,fsgid;
 	int ngroups;
 	gid_t	groups[NGROUPS];
-	kernel_cap_t   cap_effective, cap_inheritable, cap_permitted;
+	kernel_cap_t   cap_effective, cap_inheritable, cap_permitted;	//被设置成不同的权限
 	int keep_capabilities:1;
-	struct user_struct *user;
+	struct user_struct *user;	//代表着进程所属的用户
 /* limits */
-	struct rlimit rlim[RLIM_NLIMITS];
+	struct rlimit rlim[RLIM_NLIMITS];	//这是一个结构数组，表明进程对各种资源使用数量所受的限制
 	unsigned short used_math;
 	char comm[16];
 /* file system info */

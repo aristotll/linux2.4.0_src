@@ -14,7 +14,7 @@
  * mm.h, but m.h is including fs.h via sched .h :-/
  */
 typedef struct {
-	unsigned long val;
+	unsigned long val;     //其中高24位表示在一个设备文件中的具体位置offest，低7位表示在哪一个设备文件中
 } swp_entry_t;
 
 struct shmem_inode_info {

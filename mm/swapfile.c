@@ -142,38 +142,48 @@ bad_count:
  * Caller has made sure that the swapdevice corresponding to entry
  * is still around or has not been recycled.
  */
+//释放一个磁盘页面
 void __swap_free(swp_entry_t entry, unsigned short count)
 {
 	struct swap_info_struct * p;
 	unsigned long offset, type;
 
-	if (!entry.val)
+	if (!entry.val)  //为0的话，直接跳转
 		goto out;
 
-	type = SWP_TYPE(entry);
+	type = SWP_TYPE(entry);  //获得在是在哪一个设备文件的位置
+
 	if (type >= nr_swapfiles)
 		goto bad_nofile;
-	p = & swap_info[type];
-	if (!(p->flags & SWP_USED))
+
+	p = & swap_info[type];  //获得具体的设备文件
+	if (!(p->flags & SWP_USED)) //仍旧在使用
 		goto bad_device;
-	offset = SWP_OFFSET(entry);
+
+	offset = SWP_OFFSET(entry); //在文件中的偏移
 	if (offset >= p->max)
 		goto bad_offset;
-	if (!p->swap_map[offset])
+
+	if (!p->swap_map[offset])  
 		goto bad_free;
 	swap_list_lock();
-	if (p->prio > swap_info[swap_list.next].prio)
-		swap_list.next = type;
+
+	if (p->prio > swap_info[swap_list.next].prio)  //优先级
+	swap_list.next = type;
+
 	swap_device_lock(p);
-	if (p->swap_map[offset] < SWAP_MAP_MAX) {
-		if (p->swap_map[offset] < count)
+
+	if (p->swap_map[offset] < SWAP_MAP_MAX) { 
+	
+		if (p->swap_map[offset] < count)  //代表有几个连续的页面，注意：里面的值指向是一个页面
 			goto bad_count;
-		if (!(p->swap_map[offset] -= count)) {
+
+		if (!(p->swap_map[offset] -= count)) {  //更新计数
 			if (offset < p->lowest_bit)
 				p->lowest_bit = offset;
 			if (offset > p->highest_bit)
 				p->highest_bit = offset;
-			nr_swap_pages++;
+			nr_swap_pages++;		//可供分配的磁盘页面数会加1
 		}
 	}
 	swap_device_unlock(p);

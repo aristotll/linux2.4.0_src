@@ -435,6 +435,7 @@ void release_segments(struct mm_struct *mm)
 
 /*
  * Create a kernel thread
+ * 创建内核线程，它是对clone的一个包装
  */
 int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 {
@@ -449,15 +450,18 @@ int kernel_thread(int (*fn)(void *), void * arg, unsigned long flags)
 		 * not matter whether the called function is compiled with
 		 * -mregparm or not.  */
 		"movl %4,%%eax\n\t"
-		"pushl %%eax\n\t"		
-		"call *%5\n\t"		/* call fn */
-		"movl %3,%0\n\t"	/* exit */
-		"int $0x80\n"
+		"pushl %%eax\n\t"
+
+		"call *%5\n\t"		/* call fn */  //执行fn函数
+		"movl %3,%0\n\t"	/* exit */		
+		"int $0x80\n"		//再一次执行系统调用，进入到exit中
 		"1:\t"
 		:"=&a" (retval), "=&S" (d0)
-		:"0" (__NR_clone), "i" (__NR_exit),
+
+		:"0" (__NR_clone), "i" (__NR_exit),	//输入部
 		 "r" (arg), "r" (fn),
 		 "b" (flags | CLONE_VM)
+		
 		: "memory");
 	return retval;
 }

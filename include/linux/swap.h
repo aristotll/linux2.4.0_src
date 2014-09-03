@@ -46,7 +46,7 @@ union swap_header {
 #define SWAP_MAP_MAX	0x7fff
 #define SWAP_MAP_BAD	0x8000
 
-//用于交换页面交换的文件和设备
+//用于交换页面交换的文件和设备, 是一个设备文件
 struct swap_info_struct {
 	unsigned int flags;   
 	kdev_t swap_device;
@@ -61,9 +61,10 @@ struct swap_info_struct {
 	int prio;			/* swap priority */
 	int pages;
 	unsigned long max;
-	int next;			/* next entry on swap list */
+	int next;			/* next entry on swap list */ //下一个swap_list
 };
 
+//__swap_free
 extern int nr_swap_pages;
 FASTCALL(unsigned int nr_free_pages(void));
 FASTCALL(unsigned int nr_inactive_clean_pages(void));
@@ -128,6 +129,8 @@ extern struct page * read_swap_cache_async(swp_entry_t, int);
 /* linux/mm/oom_kill.c */
 extern int out_of_memory(void);
 extern void oom_kill(void);
+
+//swp_entry_t
 
 /*
  * Make these inline later once they are working properly.
@@ -210,9 +213,9 @@ extern spinlock_t pagemap_lru_lock;
 #define add_page_to_active_list(page) { \
 	DEBUG_ADD_PAGE \
 	ZERO_PAGE_BUG \
-	SetPageActive(page); \
+	SetPageActive(page); \  //设置PG_active
 	list_add(&(page)->lru, &active_list); \
-	nr_active_pages++; \
+	nr_active_pages++; \  //加1
 }
 
 #define add_page_to_inactive_dirty_list(page) { \

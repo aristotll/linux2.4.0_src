@@ -362,10 +362,11 @@ struct address_space_operations {
 	int (*bmap)(struct address_space *, long);
 };
 
+//page中的mapping就是指向address_space的
 struct address_space {
-	struct list_head	clean_pages;	/* list of clean pages */
-	struct list_head	dirty_pages;	/* list of dirty pages */
-	struct list_head	locked_pages;	/* list of locked pages */
+	struct list_head	clean_pages;	/* list of clean pages */ //干净
+	struct list_head	dirty_pages;	/* list of dirty pages */ //脏
+	struct list_head	locked_pages;	/* list of locked pages */	//暂时锁定在内存中不让换出的页面
 	unsigned long		nrpages;	/* number of total pages */
 	struct address_space_operations *a_ops;	/* methods */
 	struct inode		*host;		/* owner: inode, block_device */
@@ -373,6 +374,8 @@ struct address_space {
 	struct vm_area_struct	*i_mmap_shared; /* list of shared mappings */
 	spinlock_t		i_shared_lock;  /* and spinlock protecting it */
 };
+
+//swapper_space
 
 struct block_device {
 	struct list_head	bd_hash;
