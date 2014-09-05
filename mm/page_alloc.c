@@ -169,9 +169,10 @@ static inline struct page * expand (zone_t *zone, struct page *page,
 }
 
 static FASTCALL(struct page * rmqueue(zone_t *zone, unsigned long order));
+
 static struct page * rmqueue(zone_t *zone, unsigned long order)
 {
-	free_area_t * area = zone->free_area + order;
+	free_area_t * area = zone->free_area + order;	//指向链接所需大小的物理内存块的头，1，2，4，8等
 	unsigned long curr_order = order;
 	struct list_head *head, *curr;
 	unsigned long flags;
@@ -179,21 +180,23 @@ static struct page * rmqueue(zone_t *zone, unsigned long order)
 
 	spin_lock_irqsave(&zone->lock, flags);
 	do {
-		head = &area->free_list;
-		curr = memlist_next(head);
+		head = &area->free_list;		//头，如果不行我们就还更大的
+		curr = memlist_next(head);		//找到下一个链接点
 
 		if (curr != head) {
 			unsigned int index;
 
-			page = memlist_entry(curr, struct page, list);
+			page = memlist_entry(curr, struct page, list);	//从curr去的第一个page
 			if (BAD_RANGE(zone,page))
 				BUG();
-			memlist_del(curr);
+			memlist_del(curr);		//删除某一个队列头
+
 			index = (page - mem_map) - zone->offset;
 			MARK_USED(index, curr_order, area);
-			zone->free_pages -= 1 << order;
 
-			page = expand(zone, page, index, order, curr_order, area);
+			zone->free_pages -= 1 << order;		//减少已空余的page页数
+
+			page = expand(zone, page, index, order, curr_order, area);	//成功后，把部分小块放入到对应的几诶但
 			spin_unlock_irqrestore(&zone->lock, flags);
 
 			set_page_count(page, 1);
@@ -270,6 +273,7 @@ static struct page * __alloc_pages_limit(zonelist_t *zonelist,
 /*
  * This is the 'heart' of the zoned buddy allocator:
  */
+//其中，zonelist代表着具体分配策略的zonelist_t
 struct page * __alloc_pages(zonelist_t *zonelist, unsigned long order)
 {
 	zone_t **zone;
@@ -296,12 +300,13 @@ struct page * __alloc_pages(zonelist_t *zonelist, unsigned long order)
 	 */
 	if (order == 0 && (gfp_mask & __GFP_WAIT) &&
 			!(current->flags & PF_MEMALLOC))
-		direct_reclaim = 1;
+		direct_reclaim = 1;		//可等待的话，就设置这个值
 
 	/*
 	 * If we are about to get low on free pages and we also have
 	 * an inactive page shortage, wake up kswapd.
 	 */
+	//当页面短缺比较严重时，还会唤醒这两个线程
 	if (inactive_shortage() > inactive_target / 2 && free_shortage())
 		wakeup_kswapd(0);
 	/*
@@ -320,7 +325,7 @@ try_again:
 	 * We allocate free memory first because it doesn't contain
 	 * any data ... DUH!
 	 */
-	zone = zonelist->zones;
+	zone = zonelist->zones; //指向具体的页面管理区
 	for (;;) {
 		zone_t *z = *(zone++);
 		if (!z)
@@ -328,13 +333,13 @@ try_again:
 		if (!z->size)
 			BUG();
 
-		if (z->free_pages >= z->pages_low) {
-			page = rmqueue(z, order);
+		if (z->free_pages >= z->pages_low) {   //如果总量尚在低水位之上
+			page = rmqueue(z, order);			//回收一些页面	
 			if (page)
 				return page;
 		} else if (z->free_pages < z->pages_min &&
-					waitqueue_active(&kreclaimd_wait)) {
-				wake_up_interruptible(&kreclaimd_wait);
+					waitqueue_active(&kreclaimd_wait)) {	//否则kreclaimd_wait还在睡眠
+				wake_up_interruptible(&kreclaimd_wait);		//那么就将kreclaimd_wait唤醒
 		}
 	}
 

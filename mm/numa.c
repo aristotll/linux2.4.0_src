@@ -96,6 +96,8 @@ struct page * alloc_pages(int gfp_mask, unsigned long order)
 {
 	struct page *ret = 0;
 	pg_data_t *start, *temp;
+
+//如果定义了NUMA，其实不连续的物理存储空间也是一种广义的NUMA，因为最低物理地址和最高物理地址之间存在空洞
 #ifndef CONFIG_NUMA
 	unsigned long flags;
 	static pg_data_t *next = 0;
@@ -104,7 +106,7 @@ struct page * alloc_pages(int gfp_mask, unsigned long order)
 	if (order >= MAX_ORDER)
 		return NULL;
 #ifdef CONFIG_NUMA
-	temp = NODE_DATA(numa_node_id());
+	temp = NODE_DATA(numa_node_id());	//找到CPU所在的存储节点
 #else
 	spin_lock_irqsave(&node_lock, flags);
 	if (!next) next = pgdat_list;
@@ -112,13 +114,16 @@ struct page * alloc_pages(int gfp_mask, unsigned long order)
 	next = next->node_next;
 	spin_unlock_irqrestore(&node_lock, flags);
 #endif
-	start = temp;
+
+	start = temp;		//从开头到结尾
 	while (temp) {
 		if ((ret = alloc_pages_pgdat(temp, gfp_mask, order)))
 			return(ret);
 		temp = temp->node_next;
 	}
-	temp = pgdat_list;
+
+
+	temp = pgdat_list;	//从结尾到开头
 	while (temp != start) {
 		if ((ret = alloc_pages_pgdat(temp, gfp_mask, order)))
 			return(ret);

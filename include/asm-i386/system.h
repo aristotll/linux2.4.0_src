@@ -302,9 +302,17 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
 
 /* For spinlocks etc */
 #define local_irq_save(x)	__asm__ __volatile__("pushfl ; popl %0 ; cli":"=g" (x): /* no input */ :"memory")
+//先将状态标志寄存器保存起来
+//
+//spin_lock
+
+
+
 #define local_irq_restore(x)	__restore_flags(x)
-#define local_irq_disable()	__cli()
-#define local_irq_enable()	__sti()
+
+#define local_irq_disable()	__cli()			//关中断
+	
+#define local_irq_enable()	__sti()			//开中断
 
 #ifdef CONFIG_SMP
 

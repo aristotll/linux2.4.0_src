@@ -42,13 +42,16 @@
 #include <linux/wait.h>
 
 struct semaphore {
-	atomic_t count;
-	int sleepers;
-	wait_queue_head_t wait;
+	atomic_t count;		//表示可用的资源数量数
+	int sleepers;		//有几个等待者
+	wait_queue_head_t wait;		//等待队列
 #if WAITQUEUE_DEBUG
 	long __magic;
 #endif
 };
+
+
+//DECLARE_MUTEX
 
 #if WAITQUEUE_DEBUG
 # define __SEM_DEBUG_INIT(name) \
@@ -68,6 +71,9 @@ struct semaphore {
 	struct semaphore name = __SEMAPHORE_INITIALIZER(name,count)
 
 #define DECLARE_MUTEX(name) __DECLARE_SEMAPHORE_GENERIC(name,1)
+//count为1
+
+
 #define DECLARE_MUTEX_LOCKED(name) __DECLARE_SEMAPHORE_GENERIC(name,0)
 
 static inline void sema_init (struct semaphore *sem, int val)
@@ -119,15 +125,15 @@ static inline void down(struct semaphore * sem)
 
 	__asm__ __volatile__(
 		"# atomic down operation\n\t"
-		LOCK "decl %0\n\t"     /* --sem->count */
+		LOCK "decl %0\n\t"     /* --sem->count ，映射成1*/
 		"js 2f\n"
 		"1:\n"
-		".section .text.lock,\"ax\"\n"
-		"2:\tcall __down_failed\n\t"
+		".section .text.lock,\"ax\"\n"	
+		"2:\tcall __down_failed\n\t"	//进入睡眠中
 		"jmp 1b\n"
 		".previous"
-		:"=m" (sem->count)
-		:"c" (sem)
+		:"=m" (sem->count)		//输出部，内存单元中
+		:"c" (sem)				//输入部
 		:"memory");
 }
 
@@ -192,7 +198,7 @@ static inline void up(struct semaphore * sem)
 #endif
 	__asm__ __volatile__(
 		"# atomic up operation\n\t"
-		LOCK "incl %0\n\t"     /* ++sem->count */
+		LOCK "incl %0\n\t"     /* ++sem->count, 加1 */
 		"jle 2f\n"
 		"1:\n"
 		".section .text.lock,\"ax\"\n"

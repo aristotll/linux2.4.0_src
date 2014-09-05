@@ -50,20 +50,26 @@
 
 void __up(struct semaphore *sem)
 {
-	wake_up(&sem->wait);
+	wake_up(&sem->wait);  //唤醒等待队列中的某个进程
 }
 
 static spinlock_t semaphore_lock = SPIN_LOCK_UNLOCKED;
 
+//
 void __down(struct semaphore * sem)
 {
 	struct task_struct *tsk = current;
-	DECLARE_WAITQUEUE(wait, tsk);
-	tsk->state = TASK_UNINTERRUPTIBLE;
-	add_wait_queue_exclusive(&sem->wait, &wait);
+	DECLARE_WAITQUEUE(wait, tsk);	
+	tsk->state = TASK_UNINTERRUPTIBLE;	//先将当前进程的状态设置成TASK_UNINTERRUPTIBLE
 
-	spin_lock_irq(&semaphore_lock);
-	sem->sleepers++;
+	add_wait_queue_exclusive(&sem->wait, &wait);	//等待队列元素链入到等待队列头中
+
+	//可能有其他处理器上的进程up了
+	
+	spin_lock_irq(&semaphore_lock);		//加锁，防止处理器抢占
+
+	sem->sleepers++;		//等待者加1
+
 	for (;;) {
 		int sleepers = sem->sleepers;
 
@@ -71,21 +77,26 @@ void __down(struct semaphore * sem)
 		 * Add "everybody else" into it. They aren't
 		 * playing, because we own the spinlock.
 		 */
-		if (!atomic_add_negative(sleepers - 1, &sem->count)) {
-			sem->sleepers = 0;
+		//count＝－1， sleepers=1，仍是要等待的
+		//count=0, sleepers=1
+		if (!atomic_add_negative(sleepers - 1, &sem->count)) {	//要将sleepers-1加入到count上去
+			sem->sleepers = 0;		//直接返回了
 			break;
 		}
+
 		sem->sleepers = 1;	/* us - see -1 above */
 		spin_unlock_irq(&semaphore_lock);
 
-		schedule();
-		tsk->state = TASK_UNINTERRUPTIBLE;
-		spin_lock_irq(&semaphore_lock);
+
+		schedule();	//调度
+		
+		tsk->state = TASK_UNINTERRUPTIBLE;	//信号也不能唤醒的
+		spin_lock_irq(&semaphore_lock);		//还会到for循环上面去
 	}
 	spin_unlock_irq(&semaphore_lock);
-	remove_wait_queue(&sem->wait, &wait);
+	remove_wait_queue(&sem->wait, &wait);	//移除队等待列头的
 	tsk->state = TASK_RUNNING;
-	wake_up(&sem->wait);
+	wake_up(&sem->wait);		//并唤醒队列中的某一个元素
 }
 
 int __down_interruptible(struct semaphore * sem)
@@ -108,13 +119,14 @@ int __down_interruptible(struct semaphore * sem)
 		 * it has contention. Just correct the count
 		 * and exit.
 		 */
-		if (signal_pending(current)) {
+		if (signal_pending(current)) {  //如果有信号唤醒，也将唤醒此进程
 			retval = -EINTR;
 			sem->sleepers = 0;
 			atomic_add(sleepers, &sem->count);
 			break;
 		}
 
+		//up
 		/*
 		 * Add "everybody else" into it. They aren't
 		 * playing, because we own the spinlock. The

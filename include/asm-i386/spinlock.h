@@ -44,15 +44,18 @@ typedef struct {
  * We make no fairness assumptions. They have a cost.
  */
 
+//read_lock
+
+
 #define spin_is_locked(x)	(*(volatile char *)(&(x)->lock) <= 0)
 #define spin_unlock_wait(x)	do { barrier(); } while(spin_is_locked(x))
 
 #define spin_lock_string \
 	"\n1:\t" \
-	"lock ; decb %0\n\t" \
+	"lock ; decb %0\n\t" \		//要将总线锁住，不让其他处理器访问
 	"js 2f\n" \
 	".section .text.lock,\"ax\"\n" \
-	"2:\t" \
+	"2:\t" \		//测试
 	"cmpb $0,%0\n\t" \
 	"rep;nop\n\t" \
 	"jle 2b\n\t" \
