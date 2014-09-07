@@ -530,21 +530,23 @@ void copy_segments(struct task_struct *p, struct mm_struct *new_mm)
 #define savesegment(seg,value) \
 	asm volatile("movl %%" #seg ",%0":"=m" (*(int *)&(value)))
 
+//只是将父进程的系统空间返回给子进程的系统空间；
 int copy_thread(int nr, unsigned long clone_flags, unsigned long esp,
 	unsigned long unused,
 	struct task_struct * p, struct pt_regs * regs)
 {
 	struct pt_regs * childregs;
 
-	childregs = ((struct pt_regs *) (THREAD_SIZE + (unsigned long) p)) - 1;
+	childregs = ((struct pt_regs *) (THREAD_SIZE + (unsigned long) p)) - 1;		//系统空间堆栈的顶端
 	struct_cpy(childregs, regs);
-	childregs->eax = 0;
-	childregs->esp = esp;
+	childregs->eax = 0;			//eax为0，设置的返回值
+	childregs->esp = esp;		//用户空间堆栈的位置
 
-	p->thread.esp = (unsigned long) childregs;
+	//子进程自身的系统空间堆栈设置
+	p->thread.esp = (unsigned long) childregs;	//
 	p->thread.esp0 = (unsigned long) (childregs+1);
 
-	p->thread.eip = (unsigned long) ret_from_fork;
+	p->thread.eip = (unsigned long) ret_from_fork;//切换点
 
 	savesegment(fs,p->thread.fs);
 	savesegment(gs,p->thread.gs);
@@ -693,7 +695,7 @@ void __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 
 asmlinkage int sys_fork(struct pt_regs regs)
 {
-	return do_fork(SIGCHLD, regs.esp, &regs, 0);
+	return do_fork(SIGCHLD, regs.esp, &regs, 0);	//全面的复制
 }
 
 asmlinkage int sys_clone(struct pt_regs regs)
@@ -702,9 +704,13 @@ asmlinkage int sys_clone(struct pt_regs regs)
 	unsigned long newsp;
 
 	clone_flags = regs.ebx;
+	
+	//用户线程，给定子线程用户空间堆栈位置
 	newsp = regs.ecx;
+
 	if (!newsp)
-		newsp = regs.esp;
+		newsp = regs.esp;//为空，就使用父进程的用户空间堆栈
+
 	return do_fork(clone_flags, newsp, &regs, 0);
 }
 
@@ -720,6 +726,7 @@ asmlinkage int sys_clone(struct pt_regs regs)
  */
 asmlinkage int sys_vfork(struct pt_regs regs)
 {
+	//创建一个此线程，共享虚存空间
 	return do_fork(CLONE_VFORK | CLONE_VM | SIGCHLD, regs.esp, &regs, 0);
 }
 

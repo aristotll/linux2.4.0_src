@@ -55,7 +55,7 @@ static __inline__ unsigned int full_name_hash(const unsigned char * name, unsign
 }
 
 #define DNAME_INLINE_LEN 16
-
+//目录项
 struct dentry {
 	atomic_t d_count;
 	unsigned int d_flags;

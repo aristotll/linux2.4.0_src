@@ -155,7 +155,7 @@ int copy_page_range(struct mm_struct *dst, struct mm_struct *src,
 	pgd_t * src_pgd, * dst_pgd;
 	unsigned long address = vma->vm_start;
 	unsigned long end = vma->vm_end;
-	unsigned long cow = (vma->vm_flags & (VM_SHARED | VM_MAYWRITE)) == VM_MAYWRITE;
+	unsigned long cow = (vma->vm_flags & (VM_SHARED | VM_MAYWRITE)) == VM_MAYWRITE;  //使用VM_MAYWRITE来表示写时复制
 
 	src_pgd = pgd_offset(src, address)-1;
 	dst_pgd = pgd_offset(dst, address)-1;
@@ -209,7 +209,7 @@ skip_copy_pte_range:		address = (address + PMD_SIZE) & PMD_MASK;
 			dst_pte = pte_offset(dst_pmd, address);
 			
 			do {
-				pte_t pte = *src_pte;
+				pte_t pte = *src_pte;		//直接拷贝
 				struct page *ptepage;
 				
 				/* copy_one_pte */

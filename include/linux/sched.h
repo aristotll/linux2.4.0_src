@@ -243,7 +243,7 @@ struct mm_struct {  //是整个用户空间的抽象
 
 struct signal_struct {
 	atomic_t		count;
-	struct k_sigaction	action[_NSIG];
+	struct k_sigaction	action[_NSIG];  //表示对各种信号的的反应和处理
 	spinlock_t		siglock;
 };
 
@@ -389,10 +389,11 @@ struct task_struct {
 	struct sem_queue *semsleeping;
 /* CPU-specific state of this task */
 	struct thread_struct thread;
+//file_operations
 /* filesystem information */
-	struct fs_struct *fs;
-/* open file information */
-	struct files_struct *files;
+	struct fs_struct *fs;		//文件系统信息
+/* open file information */		
+	struct files_struct *files;	//已打开文件的信息
 /* signal handlers */
 	spinlock_t sigmask_lock;	/* Protects signal and blocked */
 	struct signal_struct *sig;

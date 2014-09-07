@@ -38,5 +38,5 @@ struct ext2_inode_info {
 	__u32	i_high_size;
 	int	i_new_inode:1;	/* Is a freshly allocated inode */
 };
-
+//ext2_inode
 #endif	/* _LINUX_EXT2_FS_I */

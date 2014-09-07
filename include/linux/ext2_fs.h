@@ -214,6 +214,7 @@ struct ext2_group_desc
 /*
  * Structure of an inode on the disk
  */
+//磁盘inode
 struct ext2_inode {
 	__u16	i_mode;		/* File mode */
 	__u16	i_uid;		/* Low 16 bits of Owner Uid */

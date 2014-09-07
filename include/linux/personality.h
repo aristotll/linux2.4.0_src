@@ -46,7 +46,7 @@ struct exec_domain {
 	unsigned char pers_low, pers_high;
 	unsigned long * signal_map;
 	unsigned long * signal_invmap;
-	struct module * module;
+	struct module * module;			//指向一个module，可以动态的安装和拆除
 	struct exec_domain *next;
 };
 

@@ -387,32 +387,33 @@ struct block_device {
 	struct semaphore	bd_sem;	/* open/close mutex */
 };
 
+//内存中索引节点，其中目录也是一种文件，也有索引节点，也有数据部分是目录项dentry，也有磁盘ext2_dir_dentry
 struct inode {
 	struct list_head	i_hash;
 	struct list_head	i_list;
-	struct list_head	i_dentry;
+	struct list_head	i_dentry;	//与这个文件相关连的所有i_dentry
 	
 	struct list_head	i_dirty_buffers;
-
-	unsigned long		i_ino;
+//dentry
+	unsigned long		i_ino;		//i节点号，同意文件系统中，每一个i节点号是唯一的
 	atomic_t		i_count;
-	kdev_t			i_dev;
+	kdev_t			i_dev;		//存储在哪一个设备上的
 	umode_t			i_mode;
-	nlink_t			i_nlink;
-	uid_t			i_uid;
-	gid_t			i_gid;
-	kdev_t			i_rdev;
+	nlink_t			i_nlink;	//链接的个数
+	uid_t			i_uid;		//文件主
+	gid_t			i_gid;		//文件组
+	kdev_t			i_rdev;		//不是常规文件，而是一个设备时，由主设备号和次设备好构成
 	loff_t			i_size;
-	time_t			i_atime;
-	time_t			i_mtime;
-	time_t			i_ctime;
+	time_t			i_atime;	//访问时间
+	time_t			i_mtime;	//修改时间
+	time_t			i_ctime;	//最初创建文件的时间
 	unsigned long		i_blksize;
 	unsigned long		i_blocks;
 	unsigned long		i_version;
 	struct semaphore	i_sem;
 	struct semaphore	i_zombie;
-	struct inode_operations	*i_op;
-	struct file_operations	*i_fop;	/* former ->i_op->default_file_ops */
+	struct inode_operations	*i_op;	//包括mkdir, mknod,lockup等操作
+	struct file_operations	*i_fop;	/* former ->i_op->default_file_ops */	//file的f_op只是它的副本
 	struct super_block	*i_sb;
 	wait_queue_head_t	i_wait;
 	struct file_lock	*i_flock;
@@ -433,7 +434,7 @@ struct inode {
 	atomic_t		i_writecount;
 	unsigned int		i_attr_flags;
 	__u32			i_generation;
-	union {
+	union {	//判别出inode属于哪一个文件系统
 		struct minix_inode_info		minix_i;
 		struct ext2_inode_info		ext2_i;
 		struct hpfs_inode_info		hpfs_i;
@@ -497,12 +498,12 @@ struct fown_struct {
 	uid_t uid, euid;	/* uid/euid of process setting the owner */
 	int signum;		/* posix.1b rt signal to be delivered on IO */
 };
-
+//inode
 struct file {
 	struct list_head	f_list;
 	struct dentry		*f_dentry;
 	struct vfsmount         *f_vfsmnt;
-	struct file_operations	*f_op;
+	struct file_operations	*f_op;  //有文件操作
 	atomic_t		f_count;
 	unsigned int 		f_flags;
 	mode_t			f_mode;
@@ -773,6 +774,7 @@ struct block_device_operations {
  * read, write, poll, fsync, readv, writev can be called
  *   without the big kernel lock held in all filesystems.
  */
+//每一个文件系统都有这样的结构，如read指向的是真正的实现文件操作的入口
 struct file_operations {
 	struct module *owner;
 	loff_t (*llseek) (struct file *, loff_t, int);

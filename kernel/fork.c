@@ -84,8 +84,8 @@ static int get_pid(unsigned long flags)
 	static int next_safe = PID_MAX;
 	struct task_struct *p;
 
-	if (flags & CLONE_PID)
-		return current->pid;
+	if (flags & CLONE_PID)		//直接返回当前进程的pid
+		return current->pid;	
 
 	spin_lock(&lastpid_lock);
 	if((++last_pid) & 0xffff8000) {
@@ -119,9 +119,10 @@ inside:
 	}
 	spin_unlock(&lastpid_lock);
 
-	return last_pid;
+	return last_pid;	//直接返回
 }
 
+//do_fork也用到
 static inline int dup_mmap(struct mm_struct * mm)
 {
 	struct vm_area_struct * mpnt, *tmp, **pprev;
@@ -137,16 +138,18 @@ static inline int dup_mmap(struct mm_struct * mm)
 	mm->swap_cnt = 0;
 	mm->swap_address = 0;
 	pprev = &mm->mmap;
+
+	//每一个vm_area_struct
 	for (mpnt = current->mm->mmap ; mpnt ; mpnt = mpnt->vm_next) {
 		struct file *file;
 
 		retval = -ENOMEM;
 		if(mpnt->vm_flags & VM_DONTCOPY)
 			continue;
-		tmp = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+		tmp = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);		//分配一个vm_area_struct内存
 		if (!tmp)
 			goto fail_nomem;
-		*tmp = *mpnt;
+		*tmp = *mpnt;	//先拷贝旧的
 		tmp->vm_flags &= ~VM_LOCKED;
 		tmp->vm_mm = mm;
 		mm->map_count++;
@@ -169,7 +172,7 @@ static inline int dup_mmap(struct mm_struct * mm)
 		}
 
 		/* Copy the pages, but defer checking for errors */
-		retval = copy_page_range(mm, current->mm, tmp);
+		retval = copy_page_range(mm, current->mm, tmp);		//用了写时拷贝技术
 		if (!retval && tmp->vm_ops && tmp->vm_ops->open)
 			tmp->vm_ops->open(tmp);
 
@@ -309,12 +312,13 @@ static int copy_mm(unsigned long clone_flags, struct task_struct * tsk)
 		goto fail_nomem;
 
 	/* Copy the current MM stuff.. */
-	memcpy(mm, oldmm, sizeof(*mm));
+	memcpy(mm, oldmm, sizeof(*mm));		//先拷贝旧的
+
 	if (!mm_init(mm))
 		goto fail_nomem;
 
 	down(&oldmm->mmap_sem);
-	retval = dup_mmap(mm);
+	retval = dup_mmap(mm);		//包含对真个vm_area_struct以及对pte等的拷贝
 	up(&oldmm->mmap_sem);
 
 	/*
@@ -418,14 +422,14 @@ static int copy_files(unsigned long clone_flags, struct task_struct * tsk)
 	if (!oldf)
 		goto out;
 
-	if (clone_flags & CLONE_FILES) {
+	if (clone_flags & CLONE_FILES) {	//只是简单的共享计数
 		atomic_inc(&oldf->count);
 		goto out;
 	}
 
 	tsk->files = NULL;
 	error = -ENOMEM;
-	newf = kmem_cache_alloc(files_cachep, SLAB_KERNEL);
+	newf = kmem_cache_alloc(files_cachep, SLAB_KERNEL);		//首先分配一个files_struct
 	if (!newf) 
 		goto out;
 
@@ -434,7 +438,7 @@ static int copy_files(unsigned long clone_flags, struct task_struct * tsk)
 	newf->file_lock	    = RW_LOCK_UNLOCKED;
 	newf->next_fd	    = 0;
 	newf->max_fds	    = NR_OPEN_DEFAULT;
-	newf->max_fdset	    = __FD_SETSIZE;
+	newf->max_fdset	    = __FD_SETSIZE;	
 	newf->close_on_exec = &newf->close_on_exec_init;
 	newf->open_fds	    = &newf->open_fds_init;
 	newf->fd	    = &newf->fd_array[0];
@@ -557,26 +561,29 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 {
 	int retval = -ENOMEM;
 	struct task_struct *p;
-	DECLARE_MUTEX_LOCKED(sem);
+	DECLARE_MUTEX_LOCKED(sem);	//创建一个信号量
 
-	if (clone_flags & CLONE_PID) {
+	if (clone_flags & CLONE_PID) {	//CLONE_PID，表示父子进程共用一个pid，但是只有0号进程可以使用
 		/* This is only allowed from the boot up thread */
 		if (current->pid)
 			return -EPERM;
 	}
 	
+	//在clone_flags中，低字节为信号量，对于fork和vfork是SIGCHLD，高字节的是一个资源共享参数，fork为空，vfork指定VM,当子进程释放虚存空间时，要唤醒父进程
+	//
 	current->vfork_sem = &sem;
 
-	p = alloc_task_struct();
+	p = alloc_task_struct();	//分配两个连续的物理页面，高端放的是系统空间堆栈
 	if (!p)
 		goto fork_out;
 
-	*p = *current;
-
+	*p = *current;			//先拷贝了一份
+	//exec_domain
 	retval = -EAGAIN;
-	if (atomic_read(&p->user->processes) >= p->rlim[RLIMIT_NPROC].rlim_cur)
+	if (atomic_read(&p->user->processes) >= p->rlim[RLIMIT_NPROC].rlim_cur)  //若用户所含有的进程数超过上限，返回
 		goto bad_fork_free;
-	atomic_inc(&p->user->__count);
+
+	atomic_inc(&p->user->__count);	//进程数个数加1
 	atomic_inc(&p->user->processes);
 
 	/*
@@ -587,17 +594,17 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	if (nr_threads >= max_threads)
 		goto bad_fork_cleanup_count;
 	
-	get_exec_domain(p->exec_domain);
+	get_exec_domain(p->exec_domain);		//增加module计数器
 
 	if (p->binfmt && p->binfmt->module)
-		__MOD_INC_USE_COUNT(p->binfmt->module);
+		__MOD_INC_USE_COUNT(p->binfmt->module);	//对映像格式的相关模块也加1
 
 	p->did_exec = 0;
 	p->swappable = 0;
-	p->state = TASK_UNINTERRUPTIBLE;
+	p->state = TASK_UNINTERRUPTIBLE;		//设置成不可打断阻塞
 
 	copy_flags(clone_flags, p);
-	p->pid = get_pid(clone_flags);
+	p->pid = get_pid(clone_flags);		//返回进程号
 
 	p->run_list.next = NULL;
 	p->run_list.prev = NULL;
@@ -608,14 +615,14 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 			p->p_pptr = current;
 	}
 	p->p_cptr = NULL;
-	init_waitqueue_head(&p->wait_chldexit);
+	init_waitqueue_head(&p->wait_chldexit);		//设置一个等待子进程的队列头部
 	p->vfork_sem = NULL;
 	spin_lock_init(&p->alloc_lock);
 
-	p->sigpending = 0;
+	p->sigpending = 0;		//信号两初始化
 	init_sigpending(&p->pending);
 
-	p->it_real_value = p->it_virt_value = p->it_prof_value = 0;
+	p->it_real_value = p->it_virt_value = p->it_prof_value = 0;		//各种计时变化量，进行初始化
 	p->it_real_incr = p->it_virt_incr = p->it_prof_incr = 0;
 	init_timer(&p->real_timer);
 	p->real_timer.data = (unsigned long) p;
@@ -636,18 +643,20 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	}
 #endif
 	p->lock_depth = -1;		/* -1 = no lock */
-	p->start_time = jiffies;
+	p->start_time = jiffies;		//表示进程创建的时间
 
 	retval = -ENOMEM;
 	/* copy all the process information */
-	if (copy_files(clone_flags, p))
+	if (copy_files(clone_flags, p))			//已打开文件
 		goto bad_fork_cleanup;
-	if (copy_fs(clone_flags, p))
+	if (copy_fs(clone_flags, p))			//文件系统
 		goto bad_fork_cleanup_files;
-	if (copy_sighand(clone_flags, p))
+	if (copy_sighand(clone_flags, p))		//信号处理
 		goto bad_fork_cleanup_fs;
-	if (copy_mm(clone_flags, p))
+	if (copy_mm(clone_flags, p))			//用户空间
 		goto bad_fork_cleanup_sighand;
+
+	//高端的系统堆栈
 	retval = copy_thread(0, clone_flags, stack_start, stack_size, p, regs);
 	if (retval)
 		goto bad_fork_cleanup_sighand;
@@ -655,12 +664,12 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	
 	/* Our parent execution domain becomes current domain
 	   These must match for thread signalling to apply */
-	   
-	p->parent_exec_id = p->self_exec_id;
+	//父进程的执行域    本进程的执行域
+	p->parent_exec_id = p->self_exec_id;	
 
 	/* ok, now we should be set up.. */
-	p->swappable = 1;
-	p->exit_signal = clone_flags & CSIGNAL;
+	p->swappable = 1;		//进程的页面可被换出
+	p->exit_signal = clone_flags & CSIGNAL;		//本进程执行exit()要发一个信号
 	p->pdeath_signal = 0;
 
 	/*
@@ -669,8 +678,8 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	 * more scheduling fairness. This is only important in the first
 	 * timeslice, on the long run the scheduling behaviour is unchanged.
 	 */
-	p->counter = (current->counter + 1) >> 1;
-	current->counter >>= 1;
+	p->counter = (current->counter + 1) >> 1;	//counter各一半
+	current->counter >>= 1;						//counter各一般
 	if (!current->counter)
 		current->need_resched = 1;
 
@@ -684,24 +693,24 @@ int do_fork(unsigned long clone_flags, unsigned long stack_start,
 	p->tgid = retval;
 	INIT_LIST_HEAD(&p->thread_group);
 	write_lock_irq(&tasklist_lock);
-	if (clone_flags & CLONE_THREAD) {
-		p->tgid = current->tgid;
+	if (clone_flags & CLONE_THREAD) {	//如果创建的是线程
+		p->tgid = current->tgid;	//构建线程组
 		list_add(&p->thread_group, &current->thread_group);
 	}
-	SET_LINKS(p);
-	hash_pid(p);
+	SET_LINKS(p);		//链入到init_task的今后曾队列
+	hash_pid(p);		//根据pid链入到hash队列中
 	nr_threads++;
 	write_unlock_irq(&tasklist_lock);
 
 	if (p->ptrace & PT_PTRACED)
 		send_sig(SIGSTOP, p, 1);
 
-	wake_up_process(p);		/* do this last */
+	wake_up_process(p);		/* do this last *， 唤醒，等待调度*/
 	++total_forks;
 
 fork_out:
 	if ((clone_flags & CLONE_VFORK) && (retval > 0)) 
-		down(&sem);
+		down(&sem);    //扣留父进程
 	return retval;
 
 bad_fork_cleanup_sighand:
