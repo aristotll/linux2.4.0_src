@@ -601,30 +601,30 @@ struct dentry * d_alloc(struct dentry * parent, const struct qstr *name)
 	char * str;
 	struct dentry *dentry;
 
-	dentry = kmem_cache_alloc(dentry_cache, GFP_KERNEL); 
+	dentry = kmem_cache_alloc(dentry_cache, GFP_KERNEL);	//通过kmem_alloc来分配的
 	if (!dentry)
 		return NULL;
 
-	if (name->len > DNAME_INLINE_LEN-1) {
+	if (name->len > DNAME_INLINE_LEN-1) {	//比较大的时候
 		str = kmalloc(NAME_ALLOC_LEN(name->len), GFP_KERNEL);
 		if (!str) {
 			kmem_cache_free(dentry_cache, dentry); 
 			return NULL;
 		}
 	} else
-		str = dentry->d_iname; 
+		str = dentry->d_iname;	//使用默认的字符数组来直接分配
 
-	memcpy(str, name->name, name->len);
+	memcpy(str, name->name, name->len);		//复制
 	str[name->len] = 0;
 
-	atomic_set(&dentry->d_count, 1);
+	atomic_set(&dentry->d_count, 1);		//先设置技术为1
 	dentry->d_flags = 0;
 	dentry->d_inode = NULL;
 	dentry->d_parent = NULL;
 	dentry->d_sb = NULL;
-	dentry->d_name.name = str;
-	dentry->d_name.len = name->len;
-	dentry->d_name.hash = name->hash;
+	dentry->d_name.name = str;			//设置名称
+	dentry->d_name.len = name->len;		//长度
+	dentry->d_name.hash = name->hash;	//hash号
 	dentry->d_op = NULL;
 	dentry->d_fsdata = NULL;
 	INIT_LIST_HEAD(&dentry->d_vfsmnt);
@@ -633,10 +633,10 @@ struct dentry * d_alloc(struct dentry * parent, const struct qstr *name)
 	INIT_LIST_HEAD(&dentry->d_subdirs);
 	INIT_LIST_HEAD(&dentry->d_alias);
 	if (parent) {
-		dentry->d_parent = dget(parent);
-		dentry->d_sb = parent->d_sb;
+		dentry->d_parent = dget(parent);				//父dentry要递增共享计数
+		dentry->d_sb = parent->d_sb;					//超级块也是一样的
 		spin_lock(&dcache_lock);
-		list_add(&dentry->d_child, &parent->d_subdirs);
+		list_add(&dentry->d_child, &parent->d_subdirs);	//挂到父节点中
 		spin_unlock(&dcache_lock);
 	} else
 		INIT_LIST_HEAD(&dentry->d_child);
@@ -664,8 +664,8 @@ void d_instantiate(struct dentry *entry, struct inode * inode)
 {
 	spin_lock(&dcache_lock);
 	if (inode)
-		list_add(&entry->d_alias, &inode->i_dentry);
-	entry->d_inode = inode;
+		list_add(&entry->d_alias, &inode->i_dentry);//inode的i_dentry是个队列，指向相同的dentry要挂入
+	entry->d_inode = inode;		//目录的指针
 	spin_unlock(&dcache_lock);
 }
 
@@ -692,7 +692,7 @@ struct dentry * d_alloc_root(struct inode * root_inode)
 	}
 	return res;
 }
-
+//主要是为了缩小范围
 static inline struct list_head * d_hash(struct dentry * parent, unsigned long hash)
 {
 	hash += (unsigned long) parent / L1_CACHE_BYTES;
@@ -716,7 +716,7 @@ struct dentry * d_lookup(struct dentry * parent, struct qstr * name)
 	unsigned int len = name->len;
 	unsigned int hash = name->hash;
 	const unsigned char *str = name->name;
-	struct list_head *head = d_hash(parent,hash);
+	struct list_head *head = d_hash(parent,hash);		//首先根据节点名的杂凑值从杂凑表中找到对应的队列指针
 	struct list_head *tmp;
 
 	spin_lock(&dcache_lock);
@@ -730,13 +730,13 @@ struct dentry * d_lookup(struct dentry * parent, struct qstr * name)
 			continue;
 		if (dentry->d_parent != parent)
 			continue;
-		if (parent->d_op && parent->d_op->d_compare) {
+		if (parent->d_op && parent->d_op->d_compare) {		//提供自身的比较函数
 			if (parent->d_op->d_compare(parent, &dentry->d_name, name))
 				continue;
 		} else {
 			if (dentry->d_name.len != len)
 				continue;
-			if (memcmp(dentry->d_name.name, str, len))
+			if (memcmp(dentry->d_name.name, str, len))		//用普通的函数
 				continue;
 		}
 		__dget_locked(dentry);

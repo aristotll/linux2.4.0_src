@@ -656,27 +656,28 @@ static struct inode * get_new_inode(struct super_block *sb, unsigned long ino, s
 {
 	struct inode * inode;
 
-	inode = alloc_inode();
+	inode = alloc_inode();		//分配一个新的inode
 	if (inode) {
 		struct inode * old;
 
 		spin_lock(&inode_lock);
 		/* We released the lock, so.. */
-		old = find_inode(sb, ino, head, find_actor, opaque);
+		old = find_inode(sb, ino, head, find_actor, opaque);	//有可能被其他的建立了
 		if (!old) {
 			inodes_stat.nr_inodes++;
 			list_add(&inode->i_list, &inode_in_use);
 			list_add(&inode->i_hash, head);
 			inode->i_sb = sb;
 			inode->i_dev = sb->s_dev;
-			inode->i_ino = ino;
+			inode->i_ino = ino;		//设置相应的参数
 			inode->i_flags = 0;
 			atomic_set(&inode->i_count, 1);
 			inode->i_state = I_LOCK;
 			spin_unlock(&inode_lock);
 
 			clean_inode(inode);
-			sb->s_op->read_inode(inode);
+			sb->s_op->read_inode(inode);		//对于索引节点的都如是通过超级块的s_op完成的
+			//ext2_read_inode
 
 			/*
 			 * This is special!  We do not need the spinlock
@@ -777,8 +778,10 @@ struct inode *iget4(struct super_block *sb, unsigned long ino, find_inode_t find
 	struct inode * inode;
 
 	spin_lock(&inode_lock);
-	inode = find_inode(sb, ino, head, find_actor, opaque);
-	if (inode) {
+	inode = find_inode(sb, ino, head, find_actor, opaque);	//在杂凑队列中寻找
+	//目标节点的inode有可能已经在内存中了，其他的dentry读入的
+	
+	if (inode) {		//找到的话
 		__iget(inode);
 		spin_unlock(&inode_lock);
 		wait_on_inode(inode);
@@ -790,7 +793,7 @@ struct inode *iget4(struct super_block *sb, unsigned long ino, find_inode_t find
 	 * get_new_inode() will do the right thing, re-trying the search
 	 * in case it had to block at any point.
 	 */
-	return get_new_inode(sb, ino, head, find_actor, opaque);
+	return get_new_inode(sb, ino, head, find_actor, opaque);		//建立一个新的inode
 }
 
 /**

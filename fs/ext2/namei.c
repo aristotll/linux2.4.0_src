@@ -62,7 +62,7 @@ static struct buffer_head * ext2_find_entry (struct inode * dir,
 					     struct ext2_dir_entry_2 ** res_dir)
 {
 	struct super_block * sb;
-	struct buffer_head * bh_use[NAMEI_RA_SIZE];
+	struct buffer_head * bh_use[NAMEI_RA_SIZE];		//NAMEI_RA_SIZE大小是8，预读的大小
 	struct buffer_head * bh_read[NAMEI_RA_SIZE];
 	unsigned long offset;
 	int block, toread, i, err;
@@ -80,12 +80,13 @@ static struct buffer_head * ext2_find_entry (struct inode * dir,
 
 		if ((block << EXT2_BLOCK_SIZE_BITS (sb)) >= dir->i_size)
 			break;
-		bh = ext2_getblk (dir, block, 0, &err);
+		bh = ext2_getblk (dir, block, 0, &err);		//从缓冲着的记录块中找到给定文件爱你的开头8个逻辑记录块，并将bh对应的指针放入对应的bh_use中
 		bh_use[block] = bh;
 		if (bh && !buffer_uptodate(bh))
 			bh_read[toread++] = bh;
 	}
 
+	//流水的方式读入相应的记录块
 	for (block = 0, offset = 0; offset < dir->i_size; block++) {
 		struct buffer_head * bh;
 		struct ext2_dir_entry_2 * de;
@@ -113,6 +114,7 @@ static struct buffer_head * ext2_find_entry (struct inode * dir,
 			break;
 		}
 
+		//在记录块中，搜索对应的ext2_dir_entry_2
 		de = (struct ext2_dir_entry_2 *) bh->b_data;
 		dlimit = bh->b_data + sb->s_blocksize;
 		while ((char *) de < dlimit) {
@@ -159,27 +161,27 @@ failure:
 		brelse (bh_use[i]);
 	return NULL;
 }
-
+//磁盘中超早相应的dentry
 static struct dentry *ext2_lookup(struct inode * dir, struct dentry *dentry)
 {
 	struct inode * inode;
-	struct ext2_dir_entry_2 * de;
+	struct ext2_dir_entry_2 * de;	//磁盘中的de
 	struct buffer_head * bh;
 
 	if (dentry->d_name.len > EXT2_NAME_LEN)
 		return ERR_PTR(-ENAMETOOLONG);
 
-	bh = ext2_find_entry (dir, dentry->d_name.name, dentry->d_name.len, &de);
+	bh = ext2_find_entry (dir, dentry->d_name.name, dentry->d_name.len, &de);	//首先从磁盘上读入当前节点的目录项,还要在内存中建立相应的inode结构
 	inode = NULL;
 	if (bh) {
-		unsigned long ino = le32_to_cpu(de->inode);
+		unsigned long ino = le32_to_cpu(de->inode);		//转换得到索引节点号，到对应的格式
 		brelse (bh);
-		inode = iget(dir->i_sb, ino);
+		inode = iget(dir->i_sb, ino);		//根据对应的索引节点号，来建立起所需的inode结构
 
 		if (!inode)
 			return ERR_PTR(-EACCES);
 	}
-	d_add(dentry, inode);
+	d_add(dentry, inode);		//先将dentry和inode完成挂接，将完成的inode结构挂入到杂凑标的某个队列
 	return NULL;
 }
 

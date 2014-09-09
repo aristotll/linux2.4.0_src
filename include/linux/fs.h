@@ -614,9 +614,10 @@ extern void kill_fasync(struct fasync_struct **, int, int);
 /* only for net: no internal synchronization */
 extern void __kill_fasync(struct fasync_struct *, int, int);
 
+//是临时性的，用来返回搜索的结果
 struct nameidata {
-	struct dentry *dentry;
-	struct vfsmount *mnt;
+	struct dentry *dentry;	//指向所找到的dentry,dentry中有指针指向inode结构
+	struct vfsmount *mnt;	//记录文件系统的安装信息
 	struct qstr last;
 	unsigned int flags;
 	int last_type;

@@ -20,7 +20,7 @@
  * second extended file system inode data in memory
  */
 struct ext2_inode_info {
-	__u32	i_data[15];
+	__u32	i_data[15];		//对于普通文件和目录文件，指向的是磁盘中存储该文件爱你内容的所有记录块，符号链接，存放的就是存储的目标路径名
 	__u32	i_flags;
 	__u32	i_faddr;
 	__u8	i_frag_no;

@@ -22,7 +22,7 @@
 
 static int ext2_readlink(struct dentry *dentry, char *buffer, int buflen)
 {
-	char *s = (char *)dentry->d_inode->u.ext2_i.i_data;
+	char *s = (char *)dentry->d_inode->u.ext2_i.i_data;		//i_data来存放目标文件的名称
 	return vfs_readlink(dentry, buffer, buflen, s);
 }
 

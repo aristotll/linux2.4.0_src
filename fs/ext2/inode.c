@@ -957,9 +957,9 @@ do_indirects:
 	else
 		mark_inode_dirty(inode);
 }
-
+//超级块的指向函数，读入inode
 void ext2_read_inode (struct inode * inode)
-{
+{   //ext2_inode_info
 	struct buffer_head * bh;
 	struct ext2_inode * raw_inode;
 	unsigned long block_group;
@@ -1059,7 +1059,7 @@ void ext2_read_inode (struct inode * inode)
 	if (inode->i_ino == EXT2_ACL_IDX_INO ||
 	    inode->i_ino == EXT2_ACL_DATA_INO)
 		/* Nothing to do */ ;
-	else if (S_ISREG(inode->i_mode)) {
+	else if (S_ISREG(inode->i_mode)) {		//根据不同的文件设置对应的操作指针
 		inode->i_op = &ext2_file_inode_operations;
 		inode->i_fop = &ext2_file_operations;
 		inode->i_mapping->a_ops = &ext2_aops;

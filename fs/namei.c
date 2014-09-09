@@ -179,7 +179,7 @@ int vfs_permission(struct inode * inode,int mask)
 
 	return -EACCES;
 }
-
+//path_walk中，也会检查权限
 int permission(struct inode * inode,int mask)
 {
 	if (inode->i_op && inode->i_op->permission) {
@@ -239,18 +239,18 @@ void path_release(struct nameidata *nd)
 	dput(nd->dentry);
 	mntput(nd->mnt);
 }
-
+//
 /*
  * Internal lookup() using the new generic dcache.
  * SMP-safe
  */
 static struct dentry * cached_lookup(struct dentry * parent, struct qstr * name, int flags)
 {
-	struct dentry * dentry = d_lookup(parent, name);
+	struct dentry * dentry = d_lookup(parent, name);		//在杂凑表中寻找
 
-	if (dentry && dentry->d_op && dentry->d_op->d_revalidate) {
-		if (!dentry->d_op->d_revalidate(dentry, flags) && !d_invalidate(dentry)) {
-			dput(dentry);
+	if (dentry && dentry->d_op && dentry->d_op->d_revalidate) {	//有
+		if (!dentry->d_op->d_revalidate(dentry, flags) && !d_invalidate(dentry)) { //有但是失败了
+			dput(dentry);	
 			dentry = NULL;
 		}
 	}
@@ -270,30 +270,30 @@ static struct dentry * real_lookup(struct dentry * parent, struct qstr * name, i
 	struct dentry * result;
 	struct inode *dir = parent->d_inode;
 
-	down(&dir->i_sem);
+	down(&dir->i_sem);		//建立dentry的过程是不允许有人打扰的
 	/*
 	 * First re-do the cached lookup just in case it was created
 	 * while we waited for the directory semaphore..
 	 *
 	 * FIXME! This could use version numbering or similar to
 	 * avoid unnecessary cache lookups.
-	 */
-	result = d_lookup(parent, name);
+	 */	//ext2_lookup
+	result = d_lookup(parent, name);		//这时候可能已经被别人建立好了，那就再从杂凑队列中找一次
 	if (!result) {
-		struct dentry * dentry = d_alloc(parent, name);
+		struct dentry * dentry = d_alloc(parent, name);	//分配一个内存
 		result = ERR_PTR(-ENOMEM);
 		if (dentry) {
 			lock_kernel();
-			result = dir->i_op->lookup(dir, dentry);
+			result = dir->i_op->lookup(dir, dentry);	//设置dentry在磁盘中的信息
 			unlock_kernel();
 			if (result)
-				dput(dentry);
+				dput(dentry);		//寻找失败后，要撤销
 			else
 				result = dentry;
 		}
 		up(&dir->i_sem);
 		return result;
-	}
+	}//path_walk
 
 	/*
 	 * Uhhuh! Nasty case: the cache was re-populated while
@@ -316,7 +316,7 @@ static inline int do_follow_link(struct dentry *dentry, struct nameidata *nd)
 		goto loop;
 	current->link_count++;
 	UPDATE_ATIME(dentry->d_inode);
-	err = dentry->d_inode->i_op->follow_link(dentry, nd);
+	err = dentry->d_inode->i_op->follow_link(dentry, nd);	//ext2_follow_link
 	current->link_count--;
 	return err;
 loop:
@@ -383,30 +383,30 @@ static inline void follow_dotdot(struct nameidata *nd)
 		struct vfsmount *parent;
 		struct dentry *dentry;
 		read_lock(&current->fs->lock);
-		if (nd->dentry == current->fs->root &&
+		if (nd->dentry == current->fs->root &&		//该节点已经是父节点了，不用网上跑了
 		    nd->mnt == current->fs->rootmnt)  {
 			read_unlock(&current->fs->lock);
 			break;
 		}
 		read_unlock(&current->fs->lock);
 		spin_lock(&dcache_lock);
-		if (nd->dentry != nd->mnt->mnt_root) {
-			dentry = dget(nd->dentry->d_parent);
+		if (nd->dentry != nd->mnt->mnt_root) {		//在同一个设备之上，dentry不等于等于安装点所在的目录
+			dentry = dget(nd->dentry->d_parent);	//获得父节点的dentry
 			spin_unlock(&dcache_lock);
 			dput(nd->dentry);
-			nd->dentry = dentry;
+			nd->dentry = dentry;					//直接设置
 			break;
 		}
-		parent=nd->mnt->mnt_parent;
+		parent=nd->mnt->mnt_parent;					//要跑到安装点的上一层目录上
 		if (parent == nd->mnt) {
 			spin_unlock(&dcache_lock);
 			break;
 		}
 		mntget(parent);
-		dentry=dget(nd->mnt->mnt_mountpoint);
+		dentry=dget(nd->mnt->mnt_mountpoint);		//重新设置dentry
 		spin_unlock(&dcache_lock);
 		dput(nd->dentry);
-		nd->dentry = dentry;
+		nd->dentry = dentry;						//重新设置nd
 		mntput(nd->mnt);
 		nd->mnt = parent;
 	}
@@ -426,22 +426,22 @@ int path_walk(const char * name, struct nameidata *nd)
 	int err;
 	unsigned int lookup_flags = nd->flags;
 
-	while (*name=='/')
+	while (*name=='/')	//多个连续的‘/’是等价的，跳过
 		name++;
 	if (!*name)
 		goto return_base;
 
-	inode = nd->dentry->d_inode;
-	if (current->link_count)
-		lookup_flags = LOOKUP_FOLLOW;
+	inode = nd->dentry->d_inode;	//得到i节点，一定有效，不可能为空指针
+	if (current->link_count)	//用这个计数对符号链接的增加
+		lookup_flags = LOOKUP_FOLLOW;	
 
 	/* At this point we know we have a real path component. */
 	for(;;) {
 		unsigned long hash;
-		struct qstr this;
+		struct qstr this;			//用来存放当前节点的杂凑值，以及节点名的长度
 		unsigned int c;
 
-		err = permission(inode, MAY_EXEC);
+		err = permission(inode, MAY_EXEC);	//首先来检查权限,可执行权限
 		dentry = ERR_PTR(err);
  		if (err)
 			break;
@@ -449,37 +449,42 @@ int path_walk(const char * name, struct nameidata *nd)
 		this.name = name;
 		c = *(const unsigned char *)name;
 
+		//计算出当前节点的杂凑值
 		hash = init_name_hash();
 		do {
 			name++;
 			hash = partial_name_hash(c, hash);
 			c = *(const unsigned char *)name;
 		} while (c && (c != '/'));
-		this.len = name - (const char *) this.name;
+
+		this.len = name - (const char *) this.name;	//长度
 		this.hash = end_name_hash(hash);
 
 		/* remove trailing slashes? */
-		if (!c)
+		if (!c)		//已经到了最后一节了
 			goto last_component;
+
 		while (*++name == '/');
 		if (!*name)
-			goto last_with_slashes;
+			goto last_with_slashes;  //也是最后一节，只不过多了个‘/’
 
 		/*
 		 * "." and ".." are special - ".." especially so because it has
 		 * to be able to know about the current root directory and
 		 * parent relationships.
 		 */
-		if (this.name[0] == '.') switch (this.len) {
+		//运行到这边，这种节点一定是一个目录
+		if (this.name[0] == '.')
+		  switch (this.len) {	//长度
 			default:
 				break;
 			case 2:	
-				if (this.name[1] != '.')
+				if (this.name[1] != '.')	//隐藏文件就break
 					break;
-				follow_dotdot(nd);
+				follow_dotdot(nd);			//这时候要设置到父节点上面去
 				inode = nd->dentry->d_inode;
 				/* fallthrough */
-			case 1:
+			case 1:					//当前目录
 				continue;
 		}
 		/*
@@ -487,19 +492,22 @@ int path_walk(const char * name, struct nameidata *nd)
 		 * to use its own hash..
 		 */
 		if (nd->dentry->d_op && nd->dentry->d_op->d_hash) {
-			err = nd->dentry->d_op->d_hash(nd->dentry, &this);
+			err = nd->dentry->d_op->d_hash(nd->dentry, &this);  //提供专有的hash函数，还要将以前的重新计算一下
 			if (err < 0)
 				break;
 		}
 		/* This does the actual lookups.. */
+		//先是在缓存中查找
 		dentry = cached_lookup(nd->dentry, &this, LOOKUP_CONTINUE);
 		if (!dentry) {
+			//在杂凑队列中找不到的话，再真正的从磁盘上查找
 			dentry = real_lookup(nd->dentry, &this, LOOKUP_CONTINUE);
 			err = PTR_ERR(dentry);
 			if (IS_ERR(dentry))
 				break;
 		}
 		/* Check mountpoints.. */
+		//查看dentry是否是一个安装点，是的话就要通过__follow_down来找到所安装设备的根节点
 		while (d_mountpoint(dentry) && __follow_down(&nd->mnt, &dentry))
 			;
 
@@ -511,7 +519,7 @@ int path_walk(const char * name, struct nameidata *nd)
 		if (!inode->i_op)
 			goto out_dput;
 
-		if (inode->i_op->follow_link) {
+		if (inode->i_op->follow_link) {		//看是否是一个链接了
 			err = do_follow_link(dentry, nd);
 			dput(dentry);
 			if (err)
@@ -533,18 +541,19 @@ int path_walk(const char * name, struct nameidata *nd)
 		continue;
 		/* here ends the main loop */
 
-last_with_slashes:
+last_with_slashes: //最后是一个/
 		lookup_flags |= LOOKUP_FOLLOW | LOOKUP_DIRECTORY;
 last_component:
-		if (lookup_flags & LOOKUP_PARENT)
+		if (lookup_flags & LOOKUP_PARENT)		//表明要找的是上一层
 			goto lookup_parent;
-		if (this.name[0] == '.') switch (this.len) {
+		if (this.name[0] == '.') 
+		  switch (this.len) {
 			default:
 				break;
 			case 2:	
 				if (this.name[1] != '.')
 					break;
-				follow_dotdot(nd);
+				follow_dotdot(nd);		//父节点
 				inode = nd->dentry->d_inode;
 				/* fallthrough */
 			case 1:
@@ -590,7 +599,7 @@ no_inode:
 		if (lookup_flags & (LOOKUP_POSITIVE|LOOKUP_DIRECTORY))
 			break;
 		goto return_base;
-lookup_parent:
+lookup_parent:		//nd本身指向的就是上一层
 		nd->last = this;
 		nd->last_type = LAST_NORM;
 		if (this.name[0] != '.')
@@ -673,15 +682,15 @@ static inline int
 walk_init_root(const char *name, struct nameidata *nd)
 {
 	read_lock(&current->fs->lock);
-	if (current->fs->altroot && !(nd->flags & LOOKUP_NOALT)) {
-		nd->mnt = mntget(current->fs->altrootmnt);
+	if (current->fs->altroot && !(nd->flags & LOOKUP_NOALT)) {		//未使用替换目录
+		nd->mnt = mntget(current->fs->altrootmnt);	//更改成替换的目录
 		nd->dentry = dget(current->fs->altroot);
 		read_unlock(&current->fs->lock);
 		if (__emul_lookup_dentry(name,nd))
 			return 0;
 		read_lock(&current->fs->lock);
 	}
-	nd->mnt = mntget(current->fs->rootmnt);
+	nd->mnt = mntget(current->fs->rootmnt);		//递增共享计数
 	nd->dentry = dget(current->fs->root);
 	read_unlock(&current->fs->lock);
 	return 1;
@@ -691,12 +700,15 @@ walk_init_root(const char *name, struct nameidata *nd)
 int path_init(const char *name, unsigned int flags, struct nameidata *nd)
 {
 	nd->last_type = LAST_ROOT; /* if there are only slashes... */
+	//这个值会随路径名的当钱搜索结果而变，如果成功的找到了目标文件，那么就设置成LAST_NORM；停留在一个.上，就变为LAST_DOT
+	
 	nd->flags = flags;
+
 	if (*name=='/')
 		return walk_init_root(name,nd);
 	read_lock(&current->fs->lock);
-	nd->mnt = mntget(current->fs->pwdmnt);
-	nd->dentry = dget(current->fs->pwd);
+	nd->mnt = mntget(current->fs->pwdmnt);		//递增对应的计数，并返回相应的指针
+	nd->dentry = dget(current->fs->pwd);		//当前工作目录
 	read_unlock(&current->fs->lock);
 	return 1;
 }
@@ -787,15 +799,17 @@ access:
  * SMP-safe
  */
 int __user_walk(const char *name, unsigned flags, struct nameidata *nd)
-{
+{//name是用户空间的路径名，flags可取LOOKUP_FOLLOW（符号链接的话，要一直找到终点）
 	char *tmp;
 	int err;
 
-	tmp = getname(name);
+	tmp = getname(name);	//分配一个页面，从用户空间复制到这个页面中
 	err = PTR_ERR(tmp);
 	if (!IS_ERR(tmp)) {
 		err = 0;
 		if (path_init(tmp, flags, nd))
+		  //path_init返回后，nd的指针dentry也就指向来了路进搜索的起点
+		  //
 			err = path_walk(tmp, nd);
 		putname(tmp);
 	}
@@ -1904,7 +1918,7 @@ out:
 }
 
 static inline int
-__vfs_follow_link(struct nameidata *nd, const char *link)
+__vfs_follow_link(struct nameidata *nd, const char *link)		//找到链接
 {
 	int res = 0;
 	char *name;
@@ -1917,7 +1931,7 @@ __vfs_follow_link(struct nameidata *nd, const char *link)
 			/* weird __emul_prefix() stuff did it */
 			goto out;
 	}
-	res = path_walk(link, nd);
+	res = path_walk(link, nd);		//继续找
 out:
 	if (current->link_count || res || nd->last_type!=LAST_NORM)
 		return res;

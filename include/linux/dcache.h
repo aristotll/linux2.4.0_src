@@ -59,14 +59,14 @@ static __inline__ unsigned int full_name_hash(const unsigned char * name, unsign
 struct dentry {
 	atomic_t d_count;
 	unsigned int d_flags;
-	struct inode  * d_inode;	/* Where the name belongs to - NULL is negative */
+	struct inode  * d_inode;	/* Where the name belongs to - NULL is negative */  //唯一，必存在
 	struct dentry * d_parent;	/* parent directory */
-	struct list_head d_vfsmnt;
-	struct list_head d_hash;	/* lookup hash list */
-	struct list_head d_lru;		/* d_count = 0 LRU list */
-	struct list_head d_child;	/* child of parent list */
-	struct list_head d_subdirs;	/* our children */
-	struct list_head d_alias;	/* inode alias list */
+	struct list_head d_vfsmnt;	//当该目录为一个安装点才会使用
+	struct list_head d_hash;	/* lookup hash list */		//链入到杂凑表dentry_hashtable中
+	struct list_head d_lru;		/* d_count = 0 LRU list */	//当共享技术d_count为0时，放入到dentry_unused队列中
+	struct list_head d_child;	/* child of parent list */	//挂入父亲的d_subdirs中
+	struct list_head d_subdirs;	/* our children */			//孩子的d_child挂入到父亲的d_subdirs中
+	struct list_head d_alias;	/* inode alias list */		//多个dentry指向同一个inode
 	struct qstr d_name;
 	unsigned long d_time;		/* used by d_revalidate */
 	struct dentry_operations  *d_op;
@@ -199,9 +199,10 @@ extern void d_rehash(struct dentry *);
  
 static __inline__ void d_add(struct dentry * entry, struct inode * inode)
 {
-	d_instantiate(entry, inode);
-	d_rehash(entry);
+	d_instantiate(entry, inode);	//挂接
+	d_rehash(entry);				//将dentry挂入到杂凑队列中
 }
+//real_lookup
 
 /* used for rename() and baskets */
 extern void d_move(struct dentry *, struct dentry *);
