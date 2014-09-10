@@ -207,7 +207,7 @@ static unsigned long * create_aout_tables(char * p, struct linux_binprm * bprm)
 	put_user(0, --sp);
 	put_user(0, --sp);
 	if (bprm->loader) {
-		put_user(0, --sp);
+		put_user(0, --sp);		//将系统空间内存的之前保存的值设置到用户空间对应的内存中
 		put_user(0x3eb, --sp);
 		put_user(bprm->loader, --sp);
 		put_user(0x3ea, --sp);
@@ -259,27 +259,29 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	unsigned long rlim;
 	int retval;
 
+	//首先是转换成目标格式，来判断格式
 	ex = *((struct exec *) bprm->buf);		/* exec-header */
 	if ((N_MAGIC(ex) != ZMAGIC && N_MAGIC(ex) != OMAGIC &&
 	     N_MAGIC(ex) != QMAGIC && N_MAGIC(ex) != NMAGIC) ||
 	    N_TRSIZE(ex) || N_DRSIZE(ex) ||
 	    bprm->file->f_dentry->d_inode->i_size < ex.a_text+ex.a_data+N_SYMSIZE(ex)+N_TXTOFF(ex)) {
-		return -ENOEXEC;
+		return -ENOEXEC;	//
 	}
 
-	fd_offset = N_TXTOFF(ex);
+	fd_offset = N_TXTOFF(ex);	//得到正确的正文段
 
 	/* Check initial limits. This avoids letting people circumvent
 	 * size limits imposed on them by creating programs with large
 	 * arrays in the data or bss.
 	 */
 	rlim = current->rlim[RLIMIT_DATA].rlim_cur;
-	if (rlim >= RLIM_INFINITY)
+	if (rlim >= RLIM_INFINITY)  //不能超过相应的限制
 		rlim = ~0;
 	if (ex.a_data + ex.a_bss > rlim)
 		return -ENOMEM;
 
 	/* Flush all traces of the currently running executable */
+	//这边以为着要和过去说再见
 	retval = flush_old_exec(bprm);
 	if (retval)
 		return retval;
@@ -294,6 +296,7 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 #endif
 #endif
 
+	//设置新的text段，data, bss段
 	current->mm->end_code = ex.a_text +
 		(current->mm->start_code = N_TXTADDR(ex));
 	current->mm->end_data = ex.a_data +
@@ -303,10 +306,10 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 
 	current->mm->rss = 0;
 	current->mm->mmap = NULL;
-	compute_creds(bprm);
+	compute_creds(bprm);		//设置相应的权限
  	current->flags &= ~PF_FORKNOEXEC;
 #ifdef __sparc__
-	if (N_MAGIC(ex) == NMAGIC) {
+	if (N_MAGIC(ex) == NMAGIC) {	
 		loff_t pos = fd_offset;
 		/* Fuck me plenty... */
 		/* <AOL></AOL> */
@@ -320,7 +323,7 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 	}
 #endif
 
-	if (N_MAGIC(ex) == OMAGIC) {
+	if (N_MAGIC(ex) == OMAGIC) {	//非纯代码
 		unsigned long text_addr, map_size;
 		loff_t pos;
 
@@ -339,8 +342,8 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 			send_sig(SIGKILL, current, 0);
 			return error;
 		}
-
-		error = bprm->file->f_op->read(bprm->file, (char *)text_addr,
+//search_binary_handler
+		error = bprm->file->f_op->read(bprm->file, (char *)text_addr,	//直接读入的
 			  ex.a_text+ex.a_data, &pos);
 		if (error < 0) {
 			send_sig(SIGKILL, current, 0);
@@ -348,7 +351,8 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 		}
 			 
 		flush_icache_range(text_addr, text_addr+ex.a_text+ex.a_data);
-	} else {
+	} else {		
+		//可重入代码，其正文段和数据段的值在运行时都不会改变，改变的东西在堆区或栈区
 		static unsigned long error_time, error_time2;
 		if ((ex.a_text & 0xfff || ex.a_data & 0xfff) &&
 		    (N_MAGIC(ex) != NMAGIC) && (jiffies-error_time2) > 5*HZ)
@@ -403,9 +407,9 @@ static int load_aout_binary(struct linux_binprm * bprm, struct pt_regs * regs)
 beyond_if:
 	set_binfmt(&aout_format);
 
-	set_brk(current->mm->start_brk, current->mm->brk);
+	set_brk(current->mm->start_brk, current->mm->brk);	//为bss段分配空间并且建立起页面映射
 
-	retval = setup_arg_pages(bprm); 
+	retval = setup_arg_pages(bprm);		//为用户空间的顶部设置一个虚存空间
 	if (retval < 0) { 
 		/* Someone check-me: is this error path enough? */ 
 		send_sig(SIGKILL, current, 0); 
@@ -413,11 +417,11 @@ beyond_if:
 	}
 
 	current->mm->start_stack =
-		(unsigned long) create_aout_tables((char *) bprm->p, bprm);
+		(unsigned long) create_aout_tables((char *) bprm->p, bprm);	//envp，argv, argc是保存在用户空间的栈顶的
 #ifdef __alpha__
 	regs->gp = ex.a_gpvalue;
 #endif
-	start_thread(regs, ex.a_entry, current->mm->start_stack);
+	start_thread(regs, ex.a_entry, current->mm->start_stack);		//设置新的指向系统空间的regs
 	if (current->ptrace & PT_PTRACED)
 		send_sig(SIGTRAP, current, 0);
 	return 0;

@@ -733,12 +733,13 @@ asmlinkage int sys_vfork(struct pt_regs regs)
 /*
  * sys_execve() executes a new program.
  */
+//执行一个新的程序
 asmlinkage int sys_execve(struct pt_regs regs)
 {
 	int error;
 	char * filename;
 
-	filename = getname((char *) regs.ebx);
+	filename = getname((char *) regs.ebx);		//ebx是上层库函数的第一个参数，先从用户空间拷贝到系统空间
 	error = PTR_ERR(filename);
 	if (IS_ERR(filename))
 		goto out;

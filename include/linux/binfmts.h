@@ -20,7 +20,7 @@
  * This structure is used to hold the arguments that are used when loading binaries.
  */
 struct linux_binprm{
-	char buf[BINPRM_BUF_SIZE];
+	char buf[BINPRM_BUF_SIZE];			
 	struct page *page[MAX_ARG_PAGES];
 	unsigned long p; /* current top of mem */
 	int sh_bang;
@@ -39,8 +39,8 @@ struct linux_binprm{
 struct linux_binfmt {
 	struct linux_binfmt * next;
 	struct module *module;
-	int (*load_binary)(struct linux_binprm *, struct  pt_regs * regs);
-	int (*load_shlib)(struct file *);
+	int (*load_binary)(struct linux_binprm *, struct  pt_regs * regs);		//用来装入可指向的程序
+	int (*load_shlib)(struct file *);			//用来装入动态安装的公用库程序
 	int (*core_dump)(long signr, struct pt_regs * regs, struct file * file);
 	unsigned long min_coredump;	/* minimal dump size */
 };

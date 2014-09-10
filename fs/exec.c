@@ -207,7 +207,7 @@ int copy_strings(int argc,char ** argv, struct linux_binprm *bprm)
 			new = 0;
 			if (!page) {
 				page = alloc_page(GFP_HIGHUSER);
-				bprm->page[i] = page;
+				bprm->page[i] = page;		//指向一个page
 				if (!page)
 					return -ENOMEM;
 				new = 1;
@@ -290,7 +290,7 @@ int setup_arg_pages(struct linux_binprm *bprm)
 	unsigned long stack_base;
 	struct vm_area_struct *mpnt;
 	int i;
-
+//建立用户的堆栈空间
 	stack_base = STACK_TOP - MAX_ARG_PAGES*PAGE_SIZE;
 
 	bprm->p += stack_base;
@@ -313,7 +313,7 @@ int setup_arg_pages(struct linux_binprm *bprm)
 		mpnt->vm_pgoff = 0;
 		mpnt->vm_file = NULL;
 		mpnt->vm_private_data = (void *) 0;
-		insert_vm_struct(current->mm, mpnt);
+		insert_vm_struct(current->mm, mpnt);	//插入到进程的mm_struct中
 		current->mm->total_vm = (mpnt->vm_end - mpnt->vm_start) >> PAGE_SHIFT;
 	} 
 
@@ -386,16 +386,17 @@ static int exec_mmap(void)
 {
 	struct mm_struct * mm, * old_mm;
 
-	old_mm = current->mm;
-	if (old_mm && atomic_read(&old_mm->mm_users) == 1) {
-		flush_cache_mm(old_mm);
-		mm_release();
+	old_mm = current->mm;	//旧的
+	if (old_mm && atomic_read(&old_mm->mm_users) == 1) {	//说明已经是分配的，独占空间的
+		flush_cache_mm(old_mm);	
+		mm_release();		//但是要释放所有的虚存空间，唤醒因为VFORK的进程
 		exit_mmap(old_mm);
 		flush_tlb_mm(old_mm);
 		return 0;
 	}
 
-	mm = mm_alloc();
+	//说明之前是共享的
+	mm = mm_alloc();		//否则自己另起炉灶
 	if (mm) {
 		struct mm_struct *active_mm = current->active_mm;
 
@@ -410,22 +411,22 @@ static int exec_mmap(void)
 		spin_unlock(&mmlist_lock);
 
 		task_lock(current);
-		current->mm = mm;
+		current->mm = mm;		//把mm和active_mm设置成新的mm
 		current->active_mm = mm;
 		task_unlock(current);
 		activate_mm(active_mm, mm);
-		mm_release();
+		mm_release();		//唤醒，因VFORK睡眠的父进程
 		if (old_mm) {
 			if (active_mm != old_mm) BUG();
-			mmput(old_mm);
+			mmput(old_mm);		//减小以前父进程的计数
 			return 0;
 		}
-		mmdrop(active_mm);
+		mmdrop(active_mm);		//减小因为调度而借来的active_mm所增加的计数
 		return 0;
 	}
 	return -ENOMEM;
 }
-
+//flush_old_exec
 /*
  * This function makes sure the current process has its own signal table,
  * so that flush_signal_handlers can later reset the handlers without
@@ -437,8 +438,9 @@ static inline int make_private_signals(void)
 {
 	struct signal_struct * newsig;
 
-	if (atomic_read(&current->sig->count) <= 1)
+	if (atomic_read(&current->sig->count) <= 1)	//如果小于1，说明不是共享的，已经分配好了
 		return 0;
+	//说明以前是和父进程共享的
 	newsig = kmem_cache_alloc(sigact_cachep, GFP_KERNEL);
 	if (newsig == NULL)
 		return -ENOMEM;
@@ -446,7 +448,7 @@ static inline int make_private_signals(void)
 	atomic_set(&newsig->count, 1);
 	memcpy(newsig->action, current->sig->action, sizeof(newsig->action));
 	spin_lock_irq(&current->sigmask_lock);
-	current->sig = newsig;
+	current->sig = newsig;	//新的信号处理表
 	spin_unlock_irq(&current->sigmask_lock);
 	return 0;
 }
@@ -486,9 +488,9 @@ static inline void flush_old_files(struct files_struct * files)
 		set = files->close_on_exec->fds_bits[j];
 		if (!set)
 			continue;
-		files->close_on_exec->fds_bits[j] = 0;
+		files->close_on_exec->fds_bits[j] = 0;		//关闭以前使用的文件打开号标识
 		write_unlock(&files->file_lock);
-		for ( ; set ; i++,set >>= 1) {
+		for ( ; set ; i++,set >>= 1) {		//是一个位图
 			if (set & 1) {
 				sys_close(i);
 			}
@@ -512,7 +514,7 @@ static inline void de_thread(struct task_struct *tsk)
 {
 	if (!list_empty(&tsk->thread_group)) {
 		write_lock_irq(&tasklist_lock);
-		list_del_init(&tsk->thread_group);
+		list_del_init(&tsk->thread_group);	//将自身从线程组中删除
 		write_unlock_irq(&tasklist_lock);
 	}
 
@@ -529,18 +531,18 @@ int flush_old_exec(struct linux_binprm * bprm)
 	/*
 	 * Make sure we have a private signal table
 	 */
-	oldsig = current->sig;
+	oldsig = current->sig;		//首先处理信号处理表
 	retval = make_private_signals();
 	if (retval) goto flush_failed;
 
 	/* 
 	 * Release all of the old mmap stuff
 	 */
-	retval = exec_mmap();
+	retval = exec_mmap();	//放弃所有的用户空间
 	if (retval) goto mmap_failed;
 
 	/* This is the point of no return */
-	release_old_signals(oldsig);
+	release_old_signals(oldsig);	//递减父进程的信号使用计数
 
 	current->sas_ss_sp = current->sas_ss_size = 0;
 
@@ -554,11 +556,11 @@ int flush_old_exec(struct linux_binprm * bprm)
 			if (i < 15)
 				current->comm[i++] = ch;
 	}
-	current->comm[i] = '\0';
+	current->comm[i] = '\0';	//用来保存所执行的程序名称
 
 	flush_thread();
 
-	de_thread(current);
+	de_thread(current);   //成为一个真正的进程
 
 	if (bprm->e_uid != current->euid || bprm->e_gid != current->egid || 
 	    permission(bprm->file->f_dentry->d_inode,MAY_READ))
@@ -569,8 +571,8 @@ int flush_old_exec(struct linux_binprm * bprm)
 	   
 	current->self_exec_id++;
 			
-	flush_signal_handlers(current);
-	flush_old_files(current->files);
+	flush_signal_handlers(current);		//将以前的用户空间的信号处理程序清除
+	flush_old_files(current->files);	//清除之前的打开文件列表
 
 	return 0;
 
@@ -583,7 +585,7 @@ flush_failed:
 	spin_unlock_irq(&current->sigmask_lock);
 	return retval;
 }
-
+//load_aout_binary
 /*
  * We mustn't allow tracing of suid binaries, unless
  * the tracer has the capability to trace anything..
@@ -600,7 +602,7 @@ static inline int must_not_trace_exec(struct task_struct * p)
 int prepare_binprm(struct linux_binprm *bprm)
 {
 	int mode;
-	struct inode * inode = bprm->file->f_dentry->d_inode;
+	struct inode * inode = bprm->file->f_dentry->d_inode;	//得到i节点
 
 	mode = inode->i_mode;
 	/* Huh? We had already checked for MAY_EXEC, WTF do we check this? */
@@ -650,7 +652,7 @@ int prepare_binprm(struct linux_binprm *bprm)
 	}
 
 	memset(bprm->buf,0,BINPRM_BUF_SIZE);
-	return kernel_read(bprm->file,0,bprm->buf,BINPRM_BUF_SIZE);
+	return kernel_read(bprm->file,0,bprm->buf,BINPRM_BUF_SIZE);	//得到前128个字节
 }
 
 /*
@@ -782,18 +784,18 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 		   but it does not matter */
 	    }
 	}
-#endif
-	for (try=0; try<2; try++) {
+#endif		//load_aout_binary
+	for (try=0; try<2; try++) {		//为了安装好模块后，再试一次
 		read_lock(&binfmt_lock);
-		for (fmt = formats ; fmt ; fmt = fmt->next) {
+		for (fmt = formats ; fmt ; fmt = fmt->next) {	//formats的循环查找，类型是load_binfmt
 			int (*fn)(struct linux_binprm *, struct pt_regs *) = fmt->load_binary;
 			if (!fn)
 				continue;
 			if (!try_inc_mod_count(fmt->module))
 				continue;
 			read_unlock(&binfmt_lock);
-			retval = fn(bprm, regs);
-			if (retval >= 0) {
+			retval = fn(bprm, regs);		//每一个成员都尝试一下load_aout_binary
+			if (retval >= 0) {		//找到了
 				put_binfmt(fmt);
 				allow_write_access(bprm->file);
 				if (bprm->file)
@@ -804,7 +806,7 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 			}
 			read_lock(&binfmt_lock);
 			put_binfmt(fmt);
-			if (retval != -ENOEXEC)
+			if (retval != -ENOEXEC)		//不是ENOEXEC，要跳出，并不是没有找到的错误
 				break;
 			if (!bprm->file) {
 				read_unlock(&binfmt_lock);
@@ -815,7 +817,7 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 		if (retval != -ENOEXEC) {
 			break;
 #ifdef CONFIG_KMOD
-		}else{
+		}else{		//查便看所有，失败的原因是ENOEXEC时
 #define printable(c) (((c)=='\t') || ((c)=='\n') || (0x20<=(c) && (c)<=0x7e))
 			char modname[20];
 			if (printable(bprm->buf[0]) &&
@@ -823,8 +825,9 @@ int search_binary_handler(struct linux_binprm *bprm,struct pt_regs *regs)
 			    printable(bprm->buf[2]) &&
 			    printable(bprm->buf[3]))
 				break; /* -ENOEXEC */
+			//根据2，3两个字节，生成一个binfmt模块名，通过request_module重新装入
 			sprintf(modname, "binfmt-%04x", *(unsigned short *)(&bprm->buf[2]));
-			request_module(modname);
+			request_module(modname);	
 #endif
 		}
 	}
@@ -842,21 +845,22 @@ int do_execve(char * filename, char ** argv, char ** envp, struct pt_regs * regs
 	int retval;
 	int i;
 
-	file = open_exec(filename);
+	file = open_exec(filename);	//打开的可执行文件
 
+	//这边表示已经打开了
 	retval = PTR_ERR(file);
 	if (IS_ERR(file))
 		return retval;
 
-	bprm.p = PAGE_SIZE*MAX_ARG_PAGES-sizeof(void *);
-	memset(bprm.page, 0, MAX_ARG_PAGES*sizeof(bprm.page[0])); 
+	bprm.p = PAGE_SIZE*MAX_ARG_PAGES-sizeof(void *);   //设置页面的总和减去一个指针的大小
+	memset(bprm.page, 0, MAX_ARG_PAGES*sizeof(bprm.page[0])); //bprm中的每一个page指向一个argv(每一个最大为一个page)
 
-	bprm.file = file;
+	bprm.file = file;	//先保存到bprm的file中
 	bprm.filename = filename;
-	bprm.sh_bang = 0;
+	bprm.sh_bang = 0;	//说明可执行文件的性质
 	bprm.loader = 0;
 	bprm.exec = 0;
-	if ((bprm.argc = count(argv, bprm.p / sizeof(void *))) < 0) {
+	if ((bprm.argc = count(argv, bprm.p / sizeof(void *))) < 0) { //  bprm.p / sizeof()表示最大值
 		allow_write_access(file);
 		fput(file);
 		return bprm.argc;
@@ -868,7 +872,7 @@ int do_execve(char * filename, char ** argv, char ** envp, struct pt_regs * regs
 		return bprm.envc;
 	}
 
-	retval = prepare_binprm(&bprm);
+	retval = prepare_binprm(&bprm);		//读入开头的128个字节作为缓冲区
 	if (retval < 0) 
 		goto out; 
 
@@ -881,10 +885,11 @@ int do_execve(char * filename, char ** argv, char ** envp, struct pt_regs * regs
 	if (retval < 0) 
 		goto out; 
 
-	retval = copy_strings(bprm.argc, argv, &bprm);
+	retval = copy_strings(bprm.argc, argv, &bprm);	//分别从用户空间来拷贝
 	if (retval < 0) 
 		goto out; 
 
+	//根据对应的格式，来进行认领
 	retval = search_binary_handler(&bprm,regs);
 	if (retval >= 0)
 		/* execve success */

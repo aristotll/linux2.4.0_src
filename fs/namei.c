@@ -110,10 +110,10 @@ static inline int do_getname(const char *filename, char *page)
 	int retval;
 	unsigned long len = PATH_MAX + 1;
 
-	if ((unsigned long) filename >= TASK_SIZE) {
+	if ((unsigned long) filename >= TASK_SIZE) {	//如果filename已经大于3GB，说明已经在系统空间中了
 		if (!segment_eq(get_fs(), KERNEL_DS))
 			return -EFAULT;
-	} else if (TASK_SIZE - (unsigned long) filename < PAGE_SIZE)
+	} else if (TASK_SIZE - (unsigned long) filename < PAGE_SIZE)		//当长度小于1个page大小时
 		len = TASK_SIZE - (unsigned long) filename;
 
 	retval = strncpy_from_user((char *)page, filename, len);

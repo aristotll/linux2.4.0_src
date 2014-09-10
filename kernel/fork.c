@@ -247,7 +247,7 @@ inline void __mmdrop(struct mm_struct *mm)
  */
 void mmput(struct mm_struct *mm)
 {
-	if (atomic_dec_and_lock(&mm->mm_users, &mmlist_lock)) {
+	if (atomic_dec_and_lock(&mm->mm_users, &mmlist_lock)) {	//变成0后，就要删除
 		list_del(&mm->mmlist);
 		spin_unlock(&mmlist_lock);
 		exit_mmap(mm);
@@ -273,9 +273,9 @@ void mm_release(void)
 	struct task_struct *tsk = current;
 
 	/* notify parent sleeping on vfork() */
-	if (tsk->flags & PF_VFORK) {
+	if (tsk->flags & PF_VFORK) {	//当子进程调用vfork后
 		tsk->flags &= ~PF_VFORK;
-		up(tsk->p_opptr->vfork_sem);
+		up(tsk->p_opptr->vfork_sem);	//释放对应的父进程vfork_sem
 	}
 }
 
