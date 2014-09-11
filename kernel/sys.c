@@ -452,17 +452,17 @@ extern inline void cap_emulate_setxuid(int old_ruid, int old_euid,
 	if ((old_ruid == 0 || old_euid == 0 || old_suid == 0) &&
 	    (current->uid != 0 && current->euid != 0 && current->suid != 0) &&
 	    !current->keep_capabilities) {
-		cap_clear(current->cap_permitted);
+		cap_clear(current->cap_permitted);		//¿¿¿¿¿¿¿¿¿setuid¿
 		cap_clear(current->cap_effective);
 	}
-	if (old_euid == 0 && current->euid != 0) {
+	if (old_euid == 0 && current->euid != 0) {	
 		cap_clear(current->cap_effective);
 	}
 	if (old_euid != 0 && current->euid == 0) {
-		current->cap_effective = current->cap_permitted;
+		current->cap_effective = current->cap_permitted;	//¿¿¿¿¿¿¿¿¿¿¿
 	}
 }
-
+//prepare_binprm
 static int set_user(uid_t new_ruid)
 {
 	struct user_struct *new_user, *old_user;
@@ -472,14 +472,14 @@ static int set_user(uid_t new_ruid)
 	 * cheaply with the new uid cache, so if it matters
 	 * we should be checking for it.  -DaveM
 	 */
-	new_user = alloc_uid(new_ruid);
+	new_user = alloc_uid(new_ruid);		//¿¿¿¿user_struct
 	if (!new_user)
 		return -EAGAIN;
 	old_user = current->user;
-	atomic_dec(&old_user->processes);
+	atomic_dec(&old_user->processes);	//¿¿¿¿
 	atomic_inc(&new_user->processes);
 
-	current->uid = new_ruid;
+	current->uid = new_ruid;	//¿¿¿¿¿
 	current->user = new_user;
 	free_uid(old_user);
 	return 0;
@@ -556,27 +556,29 @@ asmlinkage long sys_setreuid(uid_t ruid, uid_t euid)
  * will allow a root program to temporarily drop privileges and be able to
  * regain them by swapping the real and effective uid.  
  */
-asmlinkage long sys_setuid(uid_t uid)
+asmlinkage long sys_setuid(uid_t uid)		//¿¿¿¿¿
 {
-	int old_euid = current->euid;
+	int old_euid = current->euid;		//¿¿¿¿id
 	int old_ruid, old_suid, new_ruid;
 
 	old_ruid = new_ruid = current->uid;
 	old_suid = current->suid;
 	if (capable(CAP_SETUID)) {
-		if (uid != old_ruid && set_user(uid) < 0)
+		if (uid != old_ruid && set_user(uid) < 0)	
+		  
+		  //¿¿CAP_SETUID¿¿¿¿¿¿¿¿uid¿¿¿uid¿¿¿¿¿¿¿¿¿¿¿¿
 			return -EAGAIN;
-		current->suid = uid;
+		current->suid = uid;	//¿¿¿uid¿¿¿uid
 	} else if ((uid != current->uid) && (uid != current->suid))
 		return -EPERM;
 
-	current->fsuid = current->euid = uid;
+	current->fsuid = current->euid = uid;	//¿¿¿¿id
 
 	if (old_euid != uid)
 		current->dumpable = 0;
 
 	if (!issecure(SECURE_NO_SETUID_FIXUP)) {
-		cap_emulate_setxuid(old_ruid, old_euid, old_suid);
+		cap_emulate_setxuid(old_ruid, old_euid, old_suid);  //¿¿¿¿¿¿¿¿¿¿¿
 	}
 
 	return 0;
@@ -925,7 +927,7 @@ static int supplemental_group_member(gid_t grp)
 	int i = current->ngroups;
 
 	if (i) {
-		gid_t *groups = current->groups;
+		gid_t *groups = current->groups;	//¿¿¿
 		do {
 			if (*groups == grp)
 				return 1;
@@ -935,7 +937,6 @@ static int supplemental_group_member(gid_t grp)
 	}
 	return 0;
 }
-
 /*
  * Check whether we're fsgid/egid or in the supplemental group..
  */

@@ -26,7 +26,7 @@ struct linux_binprm{
 	int sh_bang;
 	struct file * file;
 	int e_uid, e_gid;
-	kernel_cap_t cap_inheritable, cap_permitted, cap_effective;
+	kernel_cap_t cap_inheritable, cap_permitted, cap_effective;	//三个特权权限
 	int argc, envc;
 	char * filename;	/* Name of binary */
 	unsigned long loader, exec;

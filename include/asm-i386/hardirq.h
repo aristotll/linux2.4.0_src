@@ -24,6 +24,7 @@ typedef struct {
 #define in_interrupt() ({ int __cpu = smp_processor_id(); \									
 			//来判断是否在软硬中断服务程序中
 	(local_irq_count(__cpu) + local_bh_count(__cpu) != 0); })
+//只要local_irq_count非0，说明在硬中断中
 
 #define in_irq() (local_irq_count(smp_processor_id()) != 0)
 

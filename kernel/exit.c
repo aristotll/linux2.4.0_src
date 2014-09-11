@@ -157,16 +157,16 @@ static inline void forget_original_parent(struct task_struct * father)
 	read_lock(&tasklist_lock);
 
 	/* Next in our thread group */
-	reaper = next_thread(father);
+	reaper = next_thread(father);	//托付给同一线程组的下一个县城
 	if (reaper == father)
-		reaper = child_reaper;
+		reaper = child_reaper;		//其实是init进程
 
 	for_each_task(p) {
-		if (p->p_opptr == father) {
+		if (p->p_opptr == father) {	//凡是当前进程的孩子的
 			/* We dont want people slaying init */
 			p->exit_signal = SIGCHLD;
 			p->self_exec_id++;
-			p->p_opptr = reaper;
+			p->p_opptr = reaper;	//抚养者
 			if (p->pdeath_signal) send_sig(p->pdeath_signal, p, 0);
 		}
 	}
@@ -308,10 +308,10 @@ static inline void __exit_mm(struct task_struct * tsk)
 		if (mm != tsk->active_mm) BUG();
 		/* more a memory barrier than a real lock */
 		task_lock(tsk);
-		tsk->mm = NULL;
+		tsk->mm = NULL;	//清0，不再指向用户空间
 		task_unlock(tsk);
 		enter_lazy_tlb(mm, current, smp_processor_id());
-		mmput(mm);
+		mmput(mm);		//真正的释放mm
 	}
 }
 
@@ -325,7 +325,7 @@ void exit_mm(struct task_struct *tsk)
  * to properly mourn us..
  */
 static void exit_notify(void)
-{
+{//在ptrace时，p_pptr是可以改变的
 	struct task_struct * p, *t;
 
 	forget_original_parent(current);
@@ -339,9 +339,9 @@ static void exit_notify(void)
 	 * is about to become orphaned.
 	 */
 	 
-	t = current->p_pptr;
+	t = current->p_pptr;		//处理养父进程
 	
-	if ((t->pgrp != current->pgrp) &&
+	if ((t->pgrp != current->pgrp) &&	//组进程不一样
 	    (t->session == current->session) &&
 	    will_become_orphaned_pgrp(current->pgrp, current) &&
 	    has_stopped_jobs(current->pgrp)) {
@@ -382,15 +382,17 @@ static void exit_notify(void)
 	 */
 
 	write_lock_irq(&tasklist_lock);
-	current->state = TASK_ZOMBIE;
+	current->state = TASK_ZOMBIE;		//设置成僵死进程
 	do_notify_parent(current, current->exit_signal);
+
 	while (current->p_cptr != NULL) {
-		p = current->p_cptr;
+		p = current->p_cptr;	//最年青的孩子
 		current->p_cptr = p->p_osptr;
 		p->p_ysptr = NULL;
 		p->ptrace = 0;
 
-		p->p_pptr = p->p_opptr;
+		p->p_pptr = p->p_opptr;	//将养父设置成生父
+
 		p->p_osptr = p->p_pptr->p_cptr;
 		if (p->p_osptr)
 			p->p_osptr->p_ysptr = p;
@@ -409,7 +411,7 @@ static void exit_notify(void)
 
 			write_unlock_irq(&tasklist_lock);
 			if (is_orphaned_pgrp(pgrp) && has_stopped_jobs(pgrp)) {
-				kill_pg(pgrp,SIGHUP,1);
+				kill_pg(pgrp,SIGHUP,1);		//发起挂起的信号
 				kill_pg(pgrp,SIGCONT,1);
 			}
 			write_lock_irq(&tasklist_lock);
@@ -417,19 +419,19 @@ static void exit_notify(void)
 	}
 	write_unlock_irq(&tasklist_lock);
 }
-
-NORET_TYPE void do_exit(long code)
+//sys_wait4
+NORET_TYPE void do_exit(long code)		//不会再返回了
 {
 	struct task_struct *tsk = current;
 
-	if (in_interrupt())
+	if (in_interrupt())		//中断服务程序是无法调用该函数的
 		panic("Aiee, killing interrupt handler!");
 	if (!tsk->pid)
 		panic("Attempted to kill the idle task!");
 	if (tsk->pid == 1)
 		panic("Attempted to kill init!");
 	tsk->flags |= PF_EXITING;
-	del_timer_sync(&tsk->real_timer);
+	del_timer_sync(&tsk->real_timer);		//先将已有的定时器离开链表
 
 fake_volatile:
 #ifdef CONFIG_BSD_PROCESS_ACCT
@@ -448,10 +450,10 @@ fake_volatile:
 		disassociate_ctty(1);
 
 	put_exec_domain(tsk->exec_domain);
-	if (tsk->binfmt && tsk->binfmt->module)
+	if (tsk->binfmt && tsk->binfmt->module)		//减少模块的引用计数
 		__MOD_DEC_USE_COUNT(tsk->binfmt->module);
 
-	tsk->exit_code = code;
+	tsk->exit_code = code;	//设置退出码
 	exit_notify();
 	schedule();
 	BUG();
@@ -487,29 +489,29 @@ asmlinkage long sys_exit(int error_code)
 asmlinkage long sys_wait4(pid_t pid,unsigned int * stat_addr, int options, struct rusage * ru)
 {
 	int flag, retval;
-	DECLARE_WAITQUEUE(wait, current);
+	DECLARE_WAITQUEUE(wait, current);	//这是一个在系统空间中建立的等待队列
 	struct task_struct *tsk;
 
 	if (options & ~(WNOHANG|WUNTRACED|__WNOTHREAD|__WCLONE|__WALL))
 		return -EINVAL;
 
-	add_wait_queue(&current->wait_chldexit,&wait);
+	add_wait_queue(&current->wait_chldexit,&wait);	//加入
 repeat:
 	flag = 0;
-	current->state = TASK_INTERRUPTIBLE;
+	current->state = TASK_INTERRUPTIBLE;	//设置成不可中断
 	read_lock(&tasklist_lock);
 	tsk = current;
 	do {
 		struct task_struct *p;
-	 	for (p = tsk->p_cptr ; p ; p = p->p_osptr) {
+	 	for (p = tsk->p_cptr ; p ; p = p->p_osptr) {	//子进程， 哥哥
 			if (pid>0) {
 				if (p->pid != pid)
-					continue;
+					continue;		//不是要等的子进程，就继续
 			} else if (!pid) {
-				if (p->pgrp != current->pgrp)
+				if (p->pgrp != current->pgrp)	
 					continue;
 			} else if (pid != -1) {
-				if (p->pgrp != -pid)
+				if (p->pgrp != -pid)	//进程组的号
 					continue;
 			}
 			/* Wait for all children (clone and not) if __WALL is set;
@@ -537,7 +539,7 @@ repeat:
 				}
 				goto end_wait4;
 			case TASK_ZOMBIE:
-				current->times.tms_cutime += p->times.tms_utime + p->times.tms_cutime;
+				current->times.tms_cutime += p->times.tms_utime + p->times.tms_cutime;	//要加上子进程消耗的时间
 				current->times.tms_cstime += p->times.tms_stime + p->times.tms_cstime;
 				read_unlock(&tasklist_lock);
 				retval = ru ? getrusage(p, RUSAGE_BOTH, ru) : 0;
@@ -546,15 +548,15 @@ repeat:
 				if (retval)
 					goto end_wait4; 
 				retval = p->pid;
-				if (p->p_opptr != p->p_pptr) {
+				if (p->p_opptr != p->p_pptr) {	//当进程的生父和养父不同时， 处理生父也有可能再等待
 					write_lock_irq(&tasklist_lock);
 					REMOVE_LINKS(p);
-					p->p_pptr = p->p_opptr;
+					p->p_pptr = p->p_opptr;	//将养父指向生父
 					SET_LINKS(p);
 					do_notify_parent(p, SIGCHLD);
 					write_unlock_irq(&tasklist_lock);
 				} else
-					release_task(p);
+					release_task(p);	//释放子进程的task_struct和系统空间
 				goto end_wait4;
 			default:
 				continue;

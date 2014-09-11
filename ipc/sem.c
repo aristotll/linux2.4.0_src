@@ -985,10 +985,10 @@ void sem_exit (void)
 	/* If the current process was sleeping for a semaphore,
 	 * remove it from the queue.
 	 */
-	if ((q = current->semsleeping)) {
+	if ((q = current->semsleeping)) {	//如果当前的进程还在等
 		int semid = q->id;
 		sma = sem_lock(semid);
-		current->semsleeping = NULL;
+		current->semsleeping = NULL;	//不许再等了
 
 		if (q->prev) {
 			if(sma==NULL)

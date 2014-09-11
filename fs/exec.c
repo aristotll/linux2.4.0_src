@@ -598,7 +598,7 @@ static inline int must_not_trace_exec(struct task_struct * p)
 /* 
  * Fill the binprm structure from the inode. 
  * Check permissions, then read the first 128 (BINPRM_BUF_SIZE) bytes
- */
+ *///do_execve  compute_creds
 int prepare_binprm(struct linux_binprm *bprm)
 {
 	int mode;
@@ -643,7 +643,7 @@ int prepare_binprm(struct linux_binprm *bprm)
          */
 
 	if (!issecure(SECURE_NOROOT)) {
-		if (bprm->e_uid == 0 || current->uid == 0) {
+		if (bprm->e_uid == 0 || current->uid == 0) {	//如果有效用户id为0
 			cap_set_full(bprm->cap_inheritable);
 			cap_set_full(bprm->cap_permitted);
 		}
@@ -669,7 +669,7 @@ int prepare_binprm(struct linux_binprm *bprm)
  * ' indicates post-exec(), and X is the global 'cap_bset'.
  *
  */
-
+//根据bprm里设置的权限，来设置当前进程的task_struct的内容
 void compute_creds(struct linux_binprm *bprm) 
 {
 	kernel_cap_t new_permitted, working;

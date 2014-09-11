@@ -8,7 +8,7 @@
 #include <linux/mm.h>
 #include <asm/uaccess.h>
 
-kernel_cap_t cap_bset = CAP_INIT_EFF_SET;
+kernel_cap_t cap_bset = CAP_INIT_EFF_SET;	//起始的所有权限，除CAP_SETPCAP
 
 /* Note: never hold tasklist_lock while spinning for this one */
 spinlock_t task_capability_lock = SPIN_LOCK_UNLOCKED;

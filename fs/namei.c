@@ -160,13 +160,17 @@ int vfs_permission(struct inode * inode,int mask)
 		 (S_ISREG(mode) || S_ISDIR(mode) || S_ISLNK(mode)))
 		return -EROFS; /* Nobody gets write access to a read-only fs */
 
-	if ((mask & S_IWOTH) && IS_IMMUTABLE(inode))
+	if ((mask & S_IWOTH) && IS_IMMUTABLE(inode))		//设置成不可更改属性，任何特权都不能更改
 		return -EACCES; /* Nobody gets write access to an immutable file */
 
+	//fsuid是专用于文件访问目的的有效uid
 	if (current->fsuid == inode->i_uid)
-		mode >>= 6;
-	else if (in_group_p(inode->i_gid))
-		mode >>= 3;
+		mode >>= 6;						//获得mode的文件主权限
+	else if (in_group_p(inode->i_gid))	//用户组的组号和文件组的组号是否相同
+		mode >>= 3;						//获得文件组权限
+
+	
+	//上述两个if都不满足时，就说明mode用最低三位，其他组权限
 
 	if (((mode & mask & S_IRWXO) == mask) || capable(CAP_DAC_OVERRIDE))
 		return 0;
@@ -174,22 +178,25 @@ int vfs_permission(struct inode * inode,int mask)
 	/* read and search access */
 	if ((mask == S_IROTH) ||
 	    (S_ISDIR(inode->i_mode)  && !(mask & ~(S_IROTH | S_IXOTH))))
-		if (capable(CAP_DAC_READ_SEARCH))
+		if (capable(CAP_DAC_READ_SEARCH))		//CAP_DAC_OVERRIDE是授权的权限，可以读任何文件，搜索任何目录
 			return 0;
 
 	return -EACCES;
 }
+
+//sys_setuid
+
 //path_walk中，也会检查权限
 int permission(struct inode * inode,int mask)
-{
-	if (inode->i_op && inode->i_op->permission) {
+{	//mask表示所要访问的标志维，有MAY_EXEC, MAY_WRITE, MAY_READ
+	if (inode->i_op && inode->i_op->permission) {	//先查看是否提供了相应的权限访问函数，其中ext2未提供
 		int retval;
 		lock_kernel();
 		retval = inode->i_op->permission(inode, mask);
 		unlock_kernel();
 		return retval;
 	}
-	return vfs_permission(inode, mask);
+	return vfs_permission(inode, mask);		//执行通用的，专门的权限检查函数
 }
 
 /*

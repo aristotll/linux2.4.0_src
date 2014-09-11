@@ -773,7 +773,7 @@ void do_notify_parent(struct task_struct *tsk, int sig)
 	info.si_status = status;
 
 	send_sig_info(sig, &info, tsk->p_pptr);
-	wake_up_parent(tsk->p_pptr);
+	wake_up_parent(tsk->p_pptr);		//养父
 }
 
 
