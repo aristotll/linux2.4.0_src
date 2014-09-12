@@ -16,22 +16,22 @@ extern void FASTCALL(__switch_to(struct task_struct *prev, struct task_struct *n
 	asm volatile("pushl %%esi\n\t"					\
 		     "pushl %%edi\n\t"					\
 		     "pushl %%ebp\n\t"					\
-		     "movl %%esp,%0\n\t"	/* save ESP */		\
-		     "movl %3,%%esp\n\t"	/* restore ESP */	\
-		     "movl $1f,%1\n\t"		/* save EIP */		\
+		     "movl %%esp,%0\n\t"	/* save ESP */		\旧的\\
+		     "movl %3,%%esp\n\t"	/* restore ESP */	\新的\\
+		     "movl $1f,%1\n\t"		/* save EIP */		\将标号1f的地址压入到%1中\
 		     "pushl %4\n\t"		/* restore EIP */	\
 		     "jmp __switch_to\n"				\
 		     "1:\t"						\
 		     "popl %%ebp\n\t"					\
 		     "popl %%edi\n\t"					\
 		     "popl %%esi\n\t"					\
-		     :"=m" (prev->thread.esp),"=m" (prev->thread.eip),	\
+		     :"=m" (prev->thread.esp),"=m" (prev->thread.eip),	\ \\输出部, -m表示在内存中\\
 		      "=b" (last)					\
-		     :"m" (next->thread.esp),"m" (next->thread.eip),	\
+		     :"m" (next->thread.esp),"m" (next->thread.eip),	\ \\ 输入部\\
 		      "a" (prev), "d" (next),				\
 		      "b" (prev));					\
 } while (0)
-
+//copy_thread
 #define _set_base(addr,base) do { unsigned long __pr; \
 __asm__ __volatile__ ("movw %%dx,%1\n\t" \
 	"rorl $16,%%edx\n\t" \

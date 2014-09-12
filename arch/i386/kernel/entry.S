@@ -286,7 +286,7 @@ handle_softirq:
 	
 	ALIGN
 reschedule:
-	call SYMBOL_NAME(schedule)    # test //执行schedule
+	call SYMBOL_NAME(schedule)    # test //执行schedule， 是否需要指向调度
 	jmp ret_from_sys_call
 
 ENTRY(divide_error)

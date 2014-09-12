@@ -641,7 +641,7 @@ void __switch_to(struct task_struct *prev_p, struct task_struct *next_p)
 	/*
 	 * Reload esp0, LDT and the page table pointer:
 	 */
-	tss->esp0 = next->esp0;
+	tss->esp0 = next->esp0;		//环城next->esp0
 
 	/*
 	 * Save away %fs and %gs. No need to save %es and %ds, as

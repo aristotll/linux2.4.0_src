@@ -92,10 +92,11 @@ static LIST_HEAD(runqueue_head);
  * We align per-CPU scheduling data on cacheline boundaries,
  * to prevent cacheline ping-pong.
  */
+//用来保存下一次调度的信息
 static union {
 	struct schedule_data {
 		struct task_struct * curr;
-		cycles_t last_schedule;
+		cycles_t last_schedule;			//用来记录调度发生的时间
 	} schedule_data;
 	char __pad [SMP_CACHE_BYTES];
 } aligned_data [NR_CPUS] __cacheline_aligned = { {{&init_task,0}}};
@@ -133,7 +134,7 @@ void scheduling_functions_start_here(void) { }
  *	   +ve: "goodness" value (the larger, the better)
  *	 +1000: realtime process, select this.
  */
-
+//计算权值
 static inline int goodness(struct task_struct * p, int this_cpu, struct mm_struct *this_mm)
 {
 	int weight;
@@ -144,13 +145,13 @@ static inline int goodness(struct task_struct * p, int this_cpu, struct mm_struc
 	 * Also, dont trigger a counter recalculation.
 	 */
 	weight = -1;
-	if (p->policy & SCHED_YIELD)
+	if (p->policy & SCHED_YIELD)		//礼让的进程，权值为-1
 		goto out;
 
 	/*
 	 * Non-RT process - normal case first.
 	 */
-	if (p->policy == SCHED_OTHER) {
+	if (p->policy == SCHED_OTHER) {			//使用于交互式分时进程
 		/*
 		 * Give the process a first-approximation goodness value
 		 * according to the number of clock-ticks it has left.
@@ -159,7 +160,7 @@ static inline int goodness(struct task_struct * p, int this_cpu, struct mm_struc
 		 * over..
 		 */
 		weight = p->counter;
-		if (!weight)
+		if (!weight)		//weight为0，就退出，时间片用完了
 			goto out;
 			
 #ifdef CONFIG_SMP
@@ -170,9 +171,9 @@ static inline int goodness(struct task_struct * p, int this_cpu, struct mm_struc
 #endif
 
 		/* .. and a slight advantage to the current MM */
-		if (p->mm == this_mm || !p->mm)
+		if (p->mm == this_mm || !p->mm)		//内核线程会奖励
 			weight += 1;
-		weight += 20 - p->nice;
+		weight += 20 - p->nice;			//反向增加
 		goto out;
 	}
 
@@ -181,7 +182,7 @@ static inline int goodness(struct task_struct * p, int this_cpu, struct mm_struc
 	 * runqueue (taking priorities within processes
 	 * into account).
 	 */
-	weight = 1000 + p->rt_priority;
+	weight = 1000 + p->rt_priority;		//对于SCHED_RR， SCHED_FIFO，进程的权值很大，优先运行
 out:
 	return weight;
 }
@@ -308,8 +309,8 @@ static inline void add_to_runqueue(struct task_struct * p)
 
 static inline void move_last_runqueue(struct task_struct * p)
 {
-	list_del(&p->run_list);
-	list_add_tail(&p->run_list, &runqueue_head);
+	list_del(&p->run_list);							//从队尾移除
+	list_add_tail(&p->run_list, &runqueue_head);	//加入到队尾	
 }
 
 static inline void move_first_runqueue(struct task_struct * p)
@@ -512,18 +513,18 @@ asmlinkage void schedule(void)
 	struct list_head *tmp;
 	int this_cpu, c;
 
-	if (!current->active_mm) BUG();
+	if (!current->active_mm) BUG();		//内核线程在进入之前，一定要设置active_mm，借用
 need_resched_back:
-	prev = current;
+	prev = current;						
 	this_cpu = prev->processor;
 
-	if (in_interrupt())
+	if (in_interrupt())				//不可能在中断中主动调用函数，只能设置task_struct中need_resched为1，
 		goto scheduling_in_interrupt;
 
-	release_kernel_lock(prev, this_cpu);
+	release_kernel_lock(prev, this_cpu);	//对x86来说，是空语句
 
 	/* Do "administrative" work here while we don't hold any locks */
-	if (softirq_active(this_cpu) & softirq_mask(this_cpu))
+	if (softirq_active(this_cpu) & softirq_mask(this_cpu))	//检查是否有软中断，有就与执行，然后返回到这
 		goto handle_softirq;
 handle_softirq_back:
 
@@ -533,24 +534,26 @@ handle_softirq_back:
 	 */
 	sched_data = & aligned_data[this_cpu].schedule_data;
 
-	spin_lock_irq(&runqueue_lock);
+	spin_lock_irq(&runqueue_lock);	//锁住可执行队列
 
 	/* move an exhausted RR process to be last.. */
-	if (prev->policy == SCHED_RR)
+	if (prev->policy == SCHED_RR)	//适合时间运行比较长的时间，处理用完时间片的进程
 		goto move_rr_last;
+
+
 move_rr_back:
 
-	switch (prev->state) {
+	switch (prev->state) {	
 		case TASK_INTERRUPTIBLE:
-			if (signal_pending(prev)) {
+			if (signal_pending(prev)) {	//对于浅中断，当有信号处理时，还要设置成running
 				prev->state = TASK_RUNNING;
 				break;
 			}
 		default:
-			del_from_runqueue(prev);
+			del_from_runqueue(prev);	//主动移除
 		case TASK_RUNNING:
 	}
-	prev->need_resched = 0;
+	prev->need_resched = 0;				//设置成0，因为已经在运行调度了
 
 	/*
 	 * this is the scheduler proper:
@@ -560,23 +563,23 @@ repeat_schedule:
 	/*
 	 * Default process to select..
 	 */
-	next = idle_task(this_cpu);
+	next = idle_task(this_cpu);		//next指向选择的最佳进程
 	c = -1000;
 	if (prev->state == TASK_RUNNING)
-		goto still_running;
+		goto still_running;			//去设置next，取当前正在运行的进程，并更新c
 
 still_running_back:
 	list_for_each(tmp, &runqueue_head) {
 		p = list_entry(tmp, struct task_struct, run_list);
 		if (can_schedule(p, this_cpu)) {
 			int weight = goodness(p, this_cpu, prev->active_mm);
-			if (weight > c)
+			if (weight > c)		//>是很有讲究的，相等的，先比的在前面
 				c = weight, next = p;
 		}
 	}
 
 	/* Do we need to re-calculate counters? */
-	if (!c)
+	if (!c)		//都为0时，重新计算
 		goto recalculate;
 	/*
 	 * from this point on nothing can prevent us from
@@ -590,7 +593,7 @@ still_running_back:
 #endif
 	spin_unlock_irq(&runqueue_lock);
 
-	if (prev == next)
+	if (prev == next)		//还是之前的正常运行的进程，那就返回吧，不需要切换
 		goto same_process;
 
 #ifdef CONFIG_SMP
@@ -621,23 +624,24 @@ still_running_back:
 	 * but prev is set to (the just run) 'last' process by switch_to().
 	 * This might sound slightly confusing but makes tons of sense.
 	 */
-	prepare_to_switch();
+	prepare_to_switch();	//虚存处理
 	{
-		struct mm_struct *mm = next->mm;
-		struct mm_struct *oldmm = prev->active_mm;
-		if (!mm) {
+		struct mm_struct *mm = next->mm;	//指向新进程的mm
+		struct mm_struct *oldmm = prev->active_mm;	//老进程的active_mm
+	
+		if (!mm) {		//新进程是个内核线程
 			if (next->active_mm) BUG();
-			next->active_mm = oldmm;
+			next->active_mm = oldmm;	//指向老进程的active_mm,因为所有的用户进程的系统空间映射都是相同的
 			atomic_inc(&oldmm->mm_count);
 			enter_lazy_tlb(oldmm, next, this_cpu);
 		} else {
 			if (next->active_mm != mm) BUG();
-			switch_mm(oldmm, mm, next, this_cpu);
+			switch_mm(oldmm, mm, next, this_cpu);	//有自己的用户空间，要切换过来
 		}
 
-		if (!prev->mm) {
+		if (!prev->mm) {	//归还
 			prev->active_mm = NULL;
-			mmdrop(oldmm);
+			mmdrop(oldmm);	//减小之前借用的虚存空间
 		}
 	}
 
@@ -645,12 +649,12 @@ still_running_back:
 	 * This just switches the register state and the
 	 * stack.
 	 */
-	switch_to(prev, next, prev);
-	__schedule_tail(prev);
+	switch_to(prev, next, prev);	//进程切换
+	__schedule_tail(prev);			//将当前进程的SCHED_YIELD清0
 
 same_process:
 	reacquire_kernel_lock(current);
-	if (current->need_resched)
+	if (current->need_resched)		//等于1，说明是中断请求的，再验证
 		goto need_resched_back;
 
 	return;
@@ -661,14 +665,14 @@ recalculate:
 		spin_unlock_irq(&runqueue_lock);
 		read_lock(&tasklist_lock);
 		for_each_task(p)
-			p->counter = (p->counter >> 1) + NICE_TO_TICKS(p->nice);
+			p->counter = (p->counter >> 1) + NICE_TO_TICKS(p->nice);	//重新计算
 		read_unlock(&tasklist_lock);
 		spin_lock_irq(&runqueue_lock);
 	}
-	goto repeat_schedule;
+	goto repeat_schedule;			//重新挑选
 
 still_running:
-	c = goodness(prev, this_cpu, prev->active_mm);
+	c = goodness(prev, this_cpu, prev->active_mm);	//计算，当前进程的c
 	next = prev;
 	goto still_running_back;
 
@@ -677,9 +681,9 @@ handle_softirq:
 	goto handle_softirq_back;
 
 move_rr_last:
-	if (!prev->counter) {
-		prev->counter = NICE_TO_TICKS(prev->nice);
-		move_last_runqueue(prev);
+	if (!prev->counter) {	//等于0时
+		prev->counter = NICE_TO_TICKS(prev->nice);	//表示当前进程的运行时间，将nice值换算成可运行时间的配额
+		move_last_runqueue(prev);	//就将它移到队尾
 	}
 	goto move_rr_back;
 
