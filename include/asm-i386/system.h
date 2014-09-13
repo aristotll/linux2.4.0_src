@@ -273,8 +273,10 @@ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
  */
 #ifndef CONFIG_X86_XMM
 #define mb() 	__asm__ __volatile__ ("lock; addl $0,0(%%esp)": : :"memory")
+//addl就是将所指向的堆栈顶部的对象加了1，是没有副作用的
 #else
 #define mb()	__asm__ __volatile__ ("sfence": : :"memory")
+//sfence是为存储器同步而设置的
 #endif
 #define rmb()	mb()
 #define wmb()	__asm__ __volatile__ ("": : :"memory")

@@ -288,12 +288,12 @@ send_now_idle:
 	int this_cpu = smp_processor_id();
 	struct task_struct *tsk;
 
-	tsk = cpu_curr(this_cpu);
-	if (preemption_goodness(tsk, p, this_cpu) > 1)
+	tsk = cpu_curr(this_cpu);		//真正的进程，因为切换的时候有一段时间不是的
+	if (preemption_goodness(tsk, p, this_cpu) > 1)		//判别优先级
 		tsk->need_resched = 1;
 #endif
 }
-
+//sys_sched_setscheduler
 /*
  * Careful!
  *
@@ -318,7 +318,7 @@ static inline void move_first_runqueue(struct task_struct * p)
 	list_del(&p->run_list);
 	list_add(&p->run_list, &runqueue_head);
 }
-
+//spin_trylock
 /*
  * Wake up a process. Put it on the run-queue if it's not
  * already there.  The "current" process is always on the
@@ -327,6 +327,7 @@ static inline void move_first_runqueue(struct task_struct * p)
  * "current->state = TASK_RUNNING" to mark yourself runnable
  * without the overhead of this.
  */
+//唤醒一个进程时
 inline void wake_up_process(struct task_struct * p)
 {
 	unsigned long flags;
@@ -338,7 +339,7 @@ inline void wake_up_process(struct task_struct * p)
 	p->state = TASK_RUNNING;
 	if (task_on_runqueue(p))
 		goto out;
-	add_to_runqueue(p);
+	add_to_runqueue(p);	//加入到可运行队列中
 	reschedule_idle(p);
 out:
 	spin_unlock_irqrestore(&runqueue_lock, flags);
@@ -440,7 +441,7 @@ static inline void __schedule_tail(struct task_struct *prev)
 	 * to enter inside the critical section)
 	 */
 	policy = prev->policy;
-	prev->policy = policy & ~SCHED_YIELD;
+	prev->policy = policy & ~SCHED_YIELD;	//会清空的
 	wmb();
 
 	/*
@@ -909,14 +910,14 @@ static int setscheduler(pid_t pid, int policy,
 	read_lock_irq(&tasklist_lock);
 	spin_lock(&runqueue_lock);
 
-	p = find_process_by_pid(pid);
+	p = find_process_by_pid(pid);	//找到task_struct
 
 	retval = -ESRCH;
 	if (!p)
 		goto out_unlock;
 			
 	if (policy < 0)
-		policy = p->policy;
+		policy = p->policy;		//设置，必须是三个里面的一个
 	else {
 		retval = -EINVAL;
 		if (policy != SCHED_FIFO && policy != SCHED_RR &&
@@ -943,10 +944,12 @@ static int setscheduler(pid_t pid, int policy,
 		goto out_unlock;
 
 	retval = 0;
+
+	//通过权限后来设置
 	p->policy = policy;
 	p->rt_priority = lp.sched_priority;
-	if (task_on_runqueue(p))
-		move_first_runqueue(p);
+	if (task_on_runqueue(p))	//如果p可运行的话
+		move_first_runqueue(p);	//就移动到队列头
 
 	current->need_resched = 1;
 
@@ -958,6 +961,7 @@ out_nounlock:
 	return retval;
 }
 
+//设置调度策略
 asmlinkage long sys_sched_setscheduler(pid_t pid, int policy, 
 				      struct sched_param *param)
 {
@@ -1049,11 +1053,13 @@ asmlinkage long sys_sched_yield(void)
 		 * so this is safe without any locking.
 		 */
 		if (current->policy == SCHED_OTHER)
-			current->policy |= SCHED_YIELD;
-		current->need_resched = 1;
+			current->policy |= SCHED_YIELD;		//设置成让路，可等待
+		current->need_resched = 1;				//设置成可调度
 	}
 	return 0;
 }
+
+//schedule
 
 asmlinkage long sys_sched_get_priority_max(int policy)
 {

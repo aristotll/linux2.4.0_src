@@ -259,12 +259,13 @@ struct tasklet_struct bh_task_vec[32];
    It can be removed only after auditing all the BHs.
  */
 spinlock_t global_bh_lock = SPIN_LOCK_UNLOCKED;
-
+//down
 static void bh_action(unsigned long nr)
 {
 	int cpu = smp_processor_id();
 
-	if (!spin_trylock(&global_bh_lock))  //控制单个cpu进入执行的
+	//SMP是不能通过的  
+	if (!spin_trylock(&global_bh_lock))  //控制只有单个cpu进入执行的
 		goto resched;
 
 	if (!hardirq_trylock(cpu))  //防止一个硬中断程序内部调用一个bh
@@ -274,7 +275,7 @@ static void bh_action(unsigned long nr)
 		bh_base[nr]();
 
 	hardirq_endlock(cpu);
-	spin_unlock(&global_bh_lock);
+	spin_unlock(&global_bh_lock);		
 	return;
 
 resched_unlock:

@@ -145,6 +145,7 @@ static inline int down_interruptible(struct semaphore * sem)
 	CHECK_MAGIC(sem->__magic);
 #endif
 
+	//LOCK，也是可以控制总线的，锁主总线
 	__asm__ __volatile__(
 		"# atomic interruptible down operation\n\t"
 		LOCK "decl %1\n\t"     /* --sem->count */
@@ -160,7 +161,7 @@ static inline int down_interruptible(struct semaphore * sem)
 		:"memory");
 	return result;
 }
-
+//mb
 static inline int down_trylock(struct semaphore * sem)
 {
 	int result;

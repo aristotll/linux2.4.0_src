@@ -67,17 +67,17 @@ typedef struct {
  */
 #define spin_unlock_string \
 	"movb $1,%0"
-
+//其中xchg会锁主总线访问内存，在SMP中
 static inline int spin_trylock(spinlock_t *lock)
 {
 	char oldval;
 	__asm__ __volatile__(
-		"xchgb %b0,%1"
-		:"=q" (oldval), "=m" (lock->lock)
-		:"0" (0) : "memory");
+		"xchgb %b0,%1"						//交换两个值
+		:"=q" (oldval), "=m" (lock->lock)	//输出
+		:"0" (0) : "memory");				//输入
 	return oldval > 0;
 }
-
+//bh_action
 static inline void spin_lock(spinlock_t *lock)
 {
 #if SPINLOCK_DEBUG

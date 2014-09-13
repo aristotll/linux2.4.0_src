@@ -582,12 +582,12 @@ void update_process_times(int user_tick)
 	int cpu = smp_processor_id(), system = user_tick ^ 1;
 
 	update_one_process(p, user_tick, system, cpu);
-	if (p->pid) {
-		if (--p->counter <= 0) {
+	if (p->pid) {		//凡不是0号进程
+		if (--p->counter <= 0) {	//计数器要减1
 			p->counter = 0;
-			p->need_resched = 1;
+			p->need_resched = 1;	//当本次时间片轮转结束，设置成可调度
 		}
-		if (p->nice > 0)
+		if (p->nice > 0)	
 			kstat.per_cpu_nice[cpu] += user_tick;
 		else
 			kstat.per_cpu_user[cpu] += user_tick;
@@ -595,7 +595,7 @@ void update_process_times(int user_tick)
 	} else if (local_bh_count(cpu) || local_irq_count(cpu) > 1)
 		kstat.per_cpu_system[cpu] += system;
 }
-
+//wake_up_process
 /*
  * Nr of active tasks - counted in fixed-point numbers
  */
