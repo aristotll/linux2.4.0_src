@@ -249,7 +249,7 @@ asmlinkage int sys_olduname(struct oldold_utsname * name)
 
 asmlinkage int sys_pause(void)
 {
-	current->state = TASK_INTERRUPTIBLE;
+	current->state = TASK_INTERRUPTIBLE;	//可被信号打断
 	schedule();
 	return -ERESTARTNOHAND;
 }

@@ -38,7 +38,7 @@ timespec_to_jiffies(struct timespec *value)
 		return MAX_JIFFY_OFFSET;
 	nsec += 1000000000L / HZ - 1;
 	nsec /= 1000000000L / HZ;
-	return HZ * sec + nsec;
+	return HZ * sec + nsec;		//获得jiffies_to_timespec
 }
 
 static __inline__ void

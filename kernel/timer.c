@@ -83,19 +83,21 @@ unsigned long prof_shift;
 
 struct timer_vec {
 	int index;
-	struct list_head vec[TVN_SIZE];
+	struct list_head vec[TVN_SIZE];		//2^6
 };
 
 struct timer_vec_root {
 	int index;
-	struct list_head vec[TVR_SIZE];
+	struct list_head vec[TVR_SIZE];		//2^8
 };
 
-static struct timer_vec tv5;
+//一共有2^6*4＋2^8*=512个队列
+
+static struct timer_vec tv5;		//包含一个timer_list的列表
 static struct timer_vec tv4;
 static struct timer_vec tv3;
 static struct timer_vec tv2;
-static struct timer_vec_root tv1;
+static struct timer_vec_root tv1;	//头
 
 static struct timer_vec * const tvecs[] = {
 	(struct timer_vec *)&tv1, &tv2, &tv3, &tv4, &tv5
@@ -125,15 +127,20 @@ static inline void internal_add_timer(struct timer_list *timer)
 	 * must be cli-ed when calling this
 	 */
 	unsigned long expires = timer->expires;
-	unsigned long idx = expires - timer_jiffies;
-	struct list_head * vec;
 
-	if (idx < TVR_SIZE) {
+	unsigned long idx = expires - timer_jiffies;	
+	//timer_expires是个全局变量，表示当前对定时器队列的处理时间已经推进到的点
+	
+	struct list_head * vec;
+//timer_vec
+//
+//找到的对应的vec
+	if (idx < TVR_SIZE) {		//第一个tv1
 		int i = expires & TVR_MASK;
 		vec = tv1.vec + i;
 	} else if (idx < 1 << (TVR_BITS + TVN_BITS)) {
 		int i = (expires >> TVR_BITS) & TVN_MASK;
-		vec = tv2.vec + i;
+		vec = tv2.vec + i;		//变为了1
 	} else if (idx < 1 << (TVR_BITS + 2 * TVN_BITS)) {
 		int i = (expires >> (TVR_BITS + TVN_BITS)) & TVN_MASK;
 		vec =  tv3.vec + i;
@@ -156,7 +163,7 @@ static inline void internal_add_timer(struct timer_list *timer)
 	/*
 	 * Timers are FIFO!
 	 */
-	list_add(&timer->list, vec->prev);
+	list_add(&timer->list, vec->prev);		//插入到队尾
 }
 
 /* Initialize both explicitly - let's try to have them in the same cache line */
@@ -177,10 +184,10 @@ void add_timer(struct timer_list *timer)
 {
 	unsigned long flags;
 
-	spin_lock_irqsave(&timerlist_lock, flags);
+	spin_lock_irqsave(&timerlist_lock, flags);		//保护
 	if (timer_pending(timer))
 		goto bug;
-	internal_add_timer(timer);
+	internal_add_timer(timer);						//添加
 	spin_unlock_irqrestore(&timerlist_lock, flags);
 	return;
 bug:
@@ -209,14 +216,14 @@ int mod_timer(struct timer_list *timer, unsigned long expires)
 	spin_unlock_irqrestore(&timerlist_lock, flags);
 	return ret;
 }
-
+//timer_bh
 int del_timer(struct timer_list * timer)
 {
 	int ret;
 	unsigned long flags;
 
 	spin_lock_irqsave(&timerlist_lock, flags);
-	ret = detach_timer(timer);
+	ret = detach_timer(timer);	//在的话就删除
 	timer->list.next = timer->list.prev = NULL;
 	spin_unlock_irqrestore(&timerlist_lock, flags);
 	return ret;
@@ -278,6 +285,8 @@ static inline void cascade_timers(struct timer_vec *tv)
 		tmp = list_entry(curr, struct timer_list, list);
 		next = curr->next;
 		list_del(curr); // not needed
+
+		//放入
 		internal_add_timer(tmp);
 		curr = next;
 	}
@@ -288,16 +297,16 @@ static inline void cascade_timers(struct timer_vec *tv)
 static inline void run_timer_list(void)
 {
 	spin_lock_irq(&timerlist_lock);
-	while ((long)(jiffies - timer_jiffies) >= 0) {
+	while ((long)(jiffies - timer_jiffies) >= 0) {		//当jiffies大于一个步长时
 		struct list_head *head, *curr;
-		if (!tv1.index) {
+		if (!tv1.index) {		//当为0时，要从t2从搬运
 			int n = 1;
 			do {
-				cascade_timers(tvecs[n]);
-			} while (tvecs[n]->index == 1 && ++n < NOOF_TVECS);
+				cascade_timers(tvecs[n]);	//从t2，若t2也变为1，就从t3
+			} while (tvecs[n]->index == 1 && ++n < NOOF_TVECS);		//是从1开始的
 		}
 repeat:
-		head = tv1.vec + tv1.index;
+		head = tv1.vec + tv1.index;		
 		curr = head->next;
 		if (curr != head) {
 			struct timer_list *timer;
@@ -312,13 +321,14 @@ repeat:
 			timer->list.next = timer->list.prev = NULL;
 			timer_enter(timer);
 			spin_unlock_irq(&timerlist_lock);
-			fn(data);
+			fn(data);			//执行本函数
+			//process_timeout
 			spin_lock_irq(&timerlist_lock);
 			timer_exit();
 			goto repeat;
 		}
-		++timer_jiffies; 
-		tv1.index = (tv1.index + 1) & TVR_MASK;
+		++timer_jiffies; 	//增加
+		tv1.index = (tv1.index + 1) & TVR_MASK;	//添加，以256为模长
 	}
 	spin_unlock_irq(&timerlist_lock);
 }
@@ -795,6 +805,7 @@ asmlinkage long sys_getegid(void)
 
 #endif
 
+//主动进入睡眠
 asmlinkage long sys_nanosleep(struct timespec *rqtp, struct timespec *rmtp)
 {
 	struct timespec t;
@@ -806,7 +817,7 @@ asmlinkage long sys_nanosleep(struct timespec *rqtp, struct timespec *rmtp)
 	if (t.tv_nsec >= 1000000000L || t.tv_nsec < 0 || t.tv_sec < 0)
 		return -EINVAL;
 
-
+	//精度是由HZ决定的，当睡眠的时间小于2ms时，当前进程的调度策略不是SCHED_OTHER时，是不能睡眠的
 	if (t.tv_sec == 0 && t.tv_nsec <= 2000000L &&
 	    current->policy != SCHED_OTHER)
 	{
@@ -816,14 +827,14 @@ asmlinkage long sys_nanosleep(struct timespec *rqtp, struct timespec *rmtp)
 		 *
 		 * Its important on SMP not to do this holding locks.
 		 */
-		udelay((t.tv_nsec + 999) / 1000);
+		udelay((t.tv_nsec + 999) / 1000);	//就简单的轮询
 		return 0;
 	}
 
-	expire = timespec_to_jiffies(&t) + (t.tv_sec || t.tv_nsec);
+	expire = timespec_to_jiffies(&t) + (t.tv_sec || t.tv_nsec);		//正常的睡眠
 
 	current->state = TASK_INTERRUPTIBLE;
-	expire = schedule_timeout(expire);
+	expire = schedule_timeout(expire);		//睡眠
 
 	if (expire) {
 		if (rmtp) {

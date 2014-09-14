@@ -291,7 +291,7 @@ asmlinkage void smp_invalidate_interrupt (void)
 	if (flush_mm == cpu_tlbstate[cpu].active_mm) {
 		if (cpu_tlbstate[cpu].state == TLBSTATE_OK) {
 			if (flush_va == FLUSH_ALL)
-				local_flush_tlb();
+				local_flush_tlb();		//冲刷是针对整个TLB的
 			else
 				__flush_tlb_one(flush_va);
 		} else
@@ -335,7 +335,8 @@ static void flush_tlb_others (unsigned long cpumask, struct mm_struct *mm,
 	 * We have to send the IPI only to
 	 * CPUs affected.
 	 */
-	send_IPI_mask(cpumask, INVALIDATE_TLB_VECTOR);
+	send_IPI_mask(cpumask, INVALIDATE_TLB_VECTOR);	//发送中断
+	//smp_invalidate_interrupt
 
 	while (flush_cpumask)
 		/* nothing. lockup detection does not belong here */;
@@ -372,6 +373,7 @@ void flush_tlb_mm (struct mm_struct * mm)
 void flush_tlb_page(struct vm_area_struct * vma, unsigned long va)
 {
 	struct mm_struct *mm = vma->vm_mm;
+	//cpu_vm_mask表示哪个cpu在使用这个空间
 	unsigned long cpu_mask = mm->cpu_vm_mask & ~(1 << smp_processor_id());
 
 	if (current->active_mm == mm) {
@@ -381,7 +383,7 @@ void flush_tlb_page(struct vm_area_struct * vma, unsigned long va)
 		 	leave_mm(smp_processor_id());
 	}
 
-	if (cpu_mask)
+	if (cpu_mask)		//还有其他cpu在使用这个mm
 		flush_tlb_others(cpu_mask, mm, va);
 }
 

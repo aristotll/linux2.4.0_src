@@ -344,7 +344,7 @@ inline void wake_up_process(struct task_struct * p)
 out:
 	spin_unlock_irqrestore(&runqueue_lock, flags);
 }
-
+//schedule_timeout
 static inline void wake_up_process_synchronous(struct task_struct * p)
 {
 	unsigned long flags;
@@ -363,7 +363,7 @@ out:
 
 static void process_timeout(unsigned long __data)
 {
-	struct task_struct * p = (struct task_struct *) __data;
+	struct task_struct * p = (struct task_struct *) __data;	//地址
 
 	wake_up_process(p);
 }
@@ -375,7 +375,7 @@ signed long schedule_timeout(signed long timeout)
 
 	switch (timeout)
 	{
-	case MAX_SCHEDULE_TIMEOUT:
+	case MAX_SCHEDULE_TIMEOUT:		//无限期睡眠
 		/*
 		 * These two special cases are useful to be comfortable
 		 * in the caller. Nothing more. We could take
@@ -405,13 +405,16 @@ signed long schedule_timeout(signed long timeout)
 
 	expire = timeout + jiffies;
 
-	init_timer(&timer);
+	//设置一个定时器
+	init_timer(&timer);			//初始化一个定时器节点
 	timer.expires = expire;
-	timer.data = (unsigned long) current;
-	timer.function = process_timeout;
+	timer.data = (unsigned long) current;	//设置相应的参数
+	timer.function = process_timeout;		//执行的函数
 
 	add_timer(&timer);
 	schedule();
+
+	//防止被信号打断
 	del_timer_sync(&timer);
 
 	timeout = expire - jiffies;
@@ -419,7 +422,7 @@ signed long schedule_timeout(signed long timeout)
  out:
 	return timeout < 0 ? 0 : timeout;
 }
-
+//sys_pause
 /*
  * schedule_tail() is getting called from the fork return path. This
  * cleans up all remaining scheduler things, without impacting the

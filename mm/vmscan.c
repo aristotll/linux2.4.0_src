@@ -80,8 +80,8 @@ static int try_to_swap_out(struct mm_struct * mm, struct vm_area_struct* vma, un
 	 * is needed on CPUs which update the accessed and dirty
 	 * bits in hardware.
 	 */
-	pte = ptep_get_and_clear(page_table);
-	flush_tlb_page(vma, address);
+	pte = ptep_get_and_clear(page_table);	//将page_table所指的表项清成0
+	flush_tlb_page(vma, address);		//冲刷CPU的高速缓存
 
 	/*
 	 * Is the page already in the swap cache? If so, then
