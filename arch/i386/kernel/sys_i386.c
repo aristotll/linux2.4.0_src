@@ -31,7 +31,10 @@ asmlinkage int sys_pipe(unsigned long * fildes)
 	int fd[2];
 	int error;
 
+	//通过调用do_pipe建立起一个管道，fd为代表着管道两断
 	error = do_pipe(fd);
+
+
 	if (!error) {
 		if (copy_to_user(fildes, fd, 2*sizeof(int)))
 			error = -EFAULT;

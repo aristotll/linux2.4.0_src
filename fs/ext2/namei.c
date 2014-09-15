@@ -208,6 +208,7 @@ static inline void ext2_set_de_type(struct super_block *sb,
  *
  * adds a file entry to the specified directory.
  */
+//ext2_mknod
 int ext2_add_entry (struct inode * dir, const char * name, int namelen,
 		    struct inode *inode)
 {
@@ -384,23 +385,23 @@ static int ext2_create (struct inode * dir, struct dentry * dentry, int mode)
 	d_instantiate(dentry, inode);
 	return 0;
 }
-
+//在ext2文件系统中创建设备节点
 static int ext2_mknod (struct inode * dir, struct dentry *dentry, int mode, int rdev)
 {
-	struct inode * inode = ext2_new_inode (dir, mode);
+	struct inode * inode = ext2_new_inode (dir, mode);		//分配一个inode节点
 	int err = PTR_ERR(inode);
 
 	if (IS_ERR(inode))
 		return err;
 
 	inode->i_uid = current->fsuid;
-	init_special_inode(inode, mode, rdev);
+	init_special_inode(inode, mode, rdev);		//设置这个节点
 	err = ext2_add_entry (dir, dentry->d_name.name, dentry->d_name.len, 
-			     inode);
+			     inode);				//将新创建的inode放入到磁盘目录文件中
 	if (err)
 		goto out_no_entry;
-	mark_inode_dirty(inode);
-	d_instantiate(dentry, inode);
+	mark_inode_dirty(inode);			//状态设置成脏，表示要同步
+	d_instantiate(dentry, inode);		//同步内存中dentry和inode
 	return 0;
 
 out_no_entry:

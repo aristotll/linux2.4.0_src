@@ -201,12 +201,12 @@ void init_special_inode(struct inode *inode, umode_t mode, int rdev)
 {
 	inode->i_mode = mode;
 	if (S_ISCHR(mode)) {
-		inode->i_fop = &def_chr_fops;
-		inode->i_rdev = to_kdev_t(rdev);
+		inode->i_fop = &def_chr_fops;		//指向默认的字符设备驱动程序
+		inode->i_rdev = to_kdev_t(rdev);	//索引节点所代表的设备的设备号（/dev/tty）
 	} else if (S_ISBLK(mode)) {
-		inode->i_fop = &def_blk_fops;
+		inode->i_fop = &def_blk_fops;		//指向默认的块设备驱动程序
 		inode->i_rdev = to_kdev_t(rdev);
-		inode->i_bdev = bdget(rdev);
+		inode->i_bdev = bdget(rdev);		//指向一个block_device
 	} else if (S_ISFIFO(mode))
 		inode->i_fop = &def_fifo_fops;
 	else if (S_ISSOCK(mode))

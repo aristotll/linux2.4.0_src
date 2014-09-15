@@ -426,21 +426,24 @@ static struct block_device *bdfind(dev_t dev, struct list_head *head)
 	return NULL;
 }
 
+//根据设备号找到或创建给定设备的block_device
 struct block_device *bdget(dev_t dev)
 {
 	struct list_head * head = bdev_hashtable + hash(dev);
 	struct block_device *bdev, *new_bdev;
 	spin_lock(&bdev_lock);
-	bdev = bdfind(dev, head);
+	bdev = bdfind(dev, head);	//首先尝试从杂凑队列中查找
 	spin_unlock(&bdev_lock);
-	if (bdev)
+	if (bdev)					//找到了，也就直接返回了
 		return bdev;
-	new_bdev = alloc_bdev();
+
+
+	new_bdev = alloc_bdev();//否则就要分配一个bd_dev了
 	if (!new_bdev)
 		return NULL;
 	atomic_set(&new_bdev->bd_count,1);
 	new_bdev->bd_dev = dev;
-	new_bdev->bd_op = NULL;
+	new_bdev->bd_op = NULL;	//在文件系统的安装与卸载中会根据设备号取得指向其block_device_operations
 	spin_lock(&bdev_lock);
 	bdev = bdfind(dev, head);
 	if (!bdev) {

@@ -886,6 +886,8 @@ static inline int may_delete(struct inode *dir,struct dentry *victim, int isdir)
  *  3. We should have write and exec permissions on dir
  *  4. We can't do it if dir is immutable (done in permission())
  */
+
+//mknod时，擦好看权限
 static inline int may_create(struct inode *dir, struct dentry *child) {
 	if (child->d_inode)
 		return -EEXIST;
@@ -1198,13 +1200,13 @@ int vfs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev)
 {
 	int error = -EPERM;
 
-	mode &= ~current->fs->umask;
+	mode &= ~current->fs->umask;		//将用户的mode与进程本身文件系统的信息的权限进行屏蔽
 
 	down(&dir->i_zombie);
-	if ((S_ISCHR(mode) || S_ISBLK(mode)) && !capable(CAP_MKNOD))
+	if ((S_ISCHR(mode) || S_ISBLK(mode)) && !capable(CAP_MKNOD))	//并通过CAP_MKNOD，看是否有权限
 		goto exit_lock;
 
-	error = may_create(dir, dentry);
+	error = may_create(dir, dentry);		//也是查看相应的权限，包括了对目标节点是否存在，进行了检验
 	if (error)
 		goto exit_lock;
 
@@ -1214,7 +1216,8 @@ int vfs_mknod(struct inode *dir, struct dentry *dentry, int mode, dev_t dev)
 
 	DQUOT_INIT(dir);
 	lock_kernel();
-	error = dir->i_op->mknod(dir, dentry, mode, dev);
+	error = dir->i_op->mknod(dir, dentry, mode, dev);	//创建设备节点
+	//ext2_mknod
 	unlock_kernel();
 exit_lock:
 	up(&dir->i_zombie);
@@ -1223,6 +1226,8 @@ exit_lock:
 	return error;
 }
 
+//设备文件在磁盘上只有一个索引节点，没有任何用户存放数据的记录块与之联系，它为应用程序提供一条通向设备的访问途径
+//其中i_block[0]中存放的目标设备的设备号
 asmlinkage long sys_mknod(const char * filename, int mode, dev_t dev)
 {
 	int error = 0;
@@ -1230,23 +1235,29 @@ asmlinkage long sys_mknod(const char * filename, int mode, dev_t dev)
 	struct dentry * dentry;
 	struct nameidata nd;
 
+//dev_t是一个16位的无符号整数，高8位为主设备号，低8位为次设备号
+
 	if (S_ISDIR(mode))
 		return -EPERM;
-	tmp = getname(filename);
+	tmp = getname(filename);	//拷贝名称
 	if (IS_ERR(tmp))
 		return PTR_ERR(tmp);
 
 	if (path_init(tmp, LOOKUP_PARENT, &nd))
-		error = path_walk(tmp, &nd);
+		error = path_walk(tmp, &nd);		//其实是找到的父亲的dentry
+
 	if (error)
 		goto out;
-	dentry = lookup_create(&nd, 0);
+
+	dentry = lookup_create(&nd, 0);			//找到对应的自身的dentry
+	
 	error = PTR_ERR(dentry);
 	if (!IS_ERR(dentry)) {
 		switch (mode & S_IFMT) {
-		case 0: case S_IFREG:
+		case 0: case S_IFREG:		//普通文件
 			error = vfs_create(nd.dentry->d_inode,dentry,mode);
 			break;
+			//包括FIFO，插口，字符设备，块设备
 		case S_IFCHR: case S_IFBLK: case S_IFIFO: case S_IFSOCK:
 			error = vfs_mknod(nd.dentry->d_inode,dentry,mode,dev);
 			break;
