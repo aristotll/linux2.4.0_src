@@ -28,6 +28,7 @@ spinlock_t files_lock = SPIN_LOCK_UNLOCKED;
  *
  * SMP-safe.
  */
+//分配两个file，do_pipe也调用
 struct file * get_empty_filp(void)
 {
 	static int old_max = 0;
@@ -121,7 +122,7 @@ void fput(struct file * file)
 		file_list_unlock();
 	}
 }
-
+//pipe_release
 struct file * fget(unsigned int fd)
 {
 	struct file * file;

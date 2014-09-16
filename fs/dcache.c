@@ -617,7 +617,7 @@ struct dentry * d_alloc(struct dentry * parent, const struct qstr *name)
 	memcpy(str, name->name, name->len);		//复制
 	str[name->len] = 0;
 
-	atomic_set(&dentry->d_count, 1);		//先设置技术为1
+	atomic_set(&dentry->d_count, 1);		//先设置计数为1
 	dentry->d_flags = 0;
 	dentry->d_inode = NULL;
 	dentry->d_parent = NULL;

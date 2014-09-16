@@ -57,19 +57,19 @@ pipe_read(struct file *filp, char *buf, size_t count, loff_t *ppos)
 	if (down_interruptible(PIPE_SEM(*inode)))
 		goto out_nolock;
 
-	if (PIPE_EMPTY(*inode)) {
+	if (PIPE_EMPTY(*inode)) {		//是空的
 do_more_read:
 		ret = 0;
 		if (!PIPE_WRITERS(*inode))
 			goto out;
 
 		ret = -EAGAIN;
-		if (filp->f_flags & O_NONBLOCK)
+		if (filp->f_flags & O_NONBLOCK)  //立即返回
 			goto out;
 
 		for (;;) {
 			PIPE_WAITING_READERS(*inode)++;
-			pipe_wait(inode);
+			pipe_wait(inode);			//睡眠
 			PIPE_WAITING_READERS(*inode)--;
 			ret = -ERESTARTSYS;
 			if (signal_pending(current))
@@ -82,6 +82,7 @@ do_more_read:
 		}
 	}
 
+	//循环缓冲
 	/* Read what data is available.  */
 	ret = -EFAULT;
 	while (count > 0 && (size = PIPE_LEN(*inode))) {
@@ -303,9 +304,9 @@ static int
 pipe_release(struct inode *inode, int decr, int decw)
 {
 	down(PIPE_SEM(*inode));
-	PIPE_READERS(*inode) -= decr;
+	PIPE_READERS(*inode) -= decr;	//减少读者
 	PIPE_WRITERS(*inode) -= decw;
-	if (!PIPE_READERS(*inode) && !PIPE_WRITERS(*inode)) {
+	if (!PIPE_READERS(*inode) && !PIPE_WRITERS(*inode)) {  //都为0时，就可以关闭了
 		struct pipe_inode_info *info = inode->i_pipe;
 		inode->i_pipe = NULL;
 		free_page((unsigned long) info->base);
@@ -321,15 +322,15 @@ pipe_release(struct inode *inode, int decr, int decw)
 static int
 pipe_read_release(struct inode *inode, struct file *filp)
 {
-	return pipe_release(inode, 1, 0);
+	return pipe_release(inode, 1, 0);		//分别调用
 }
 
 static int
 pipe_write_release(struct inode *inode, struct file *filp)
 {
-	return pipe_release(inode, 0, 1);
+	return pipe_release(inode, 0, 1);		//分别调用
 }
-
+//pipe_read
 static int
 pipe_rdwr_release(struct inode *inode, struct file *filp)
 {
@@ -438,20 +439,20 @@ struct file_operations rdwr_pipe_fops = {
 	open:		pipe_rdwr_open,
 	release:	pipe_rdwr_release,
 };
-
+//do_pipe
 struct inode* pipe_new(struct inode* inode)
 {
 	unsigned long page;
 
-	page = __get_free_page(GFP_USER);
+	page = __get_free_page(GFP_USER);	//分配一个页面做缓冲区
 	if (!page)
 		return NULL;
 
-	inode->i_pipe = kmalloc(sizeof(struct pipe_inode_info), GFP_KERNEL);
+	inode->i_pipe = kmalloc(sizeof(struct pipe_inode_info), GFP_KERNEL);  //指向一个pipe_inode_info
 	if (!inode->i_pipe)
 		goto fail_page;
 
-	init_waitqueue_head(PIPE_WAIT(*inode));
+	init_waitqueue_head(PIPE_WAIT(*inode));  //初始化pipe_inode_info的队列头
 	PIPE_BASE(*inode) = (char*) page;
 	PIPE_START(*inode) = PIPE_LEN(*inode) = 0;
 	PIPE_READERS(*inode) = PIPE_WRITERS(*inode) = 0;
@@ -475,15 +476,15 @@ static struct dentry_operations pipefs_dentry_operations = {
 
 static struct inode * get_pipe_inode(void)
 {
-	struct inode *inode = get_empty_inode();
+	struct inode *inode = get_empty_inode();  //一个空闲的inode结构
 
 	if (!inode)
 		goto fail_inode;
 
-	if(!pipe_new(inode))
+	if(!pipe_new(inode))  //分配一个缓冲区
 		goto fail_iput;
 	PIPE_READERS(*inode) = PIPE_WRITERS(*inode) = 1;
-	inode->i_fop = &rdwr_pipe_fops;
+	inode->i_fop = &rdwr_pipe_fops;		//指向的操作
 	inode->i_sb = pipe_mnt->mnt_sb;
 
 	/*
@@ -517,7 +518,7 @@ int do_pipe(int *fd)
 	int i,j;
 
 	error = -ENFILE;
-	f1 = get_empty_filp();
+	f1 = get_empty_filp();	//分配一个file
 	if (!f1)
 		goto no_files;
 
@@ -525,11 +526,11 @@ int do_pipe(int *fd)
 	if (!f2)
 		goto close_f1;
 
-	inode = get_pipe_inode();
+	inode = get_pipe_inode();	//创建一个inode
 	if (!inode)
 		goto close_f12;
 
-	error = get_unused_fd();
+	error = get_unused_fd();		//获得一个fd
 	if (error < 0)
 		goto close_f12_inode;
 	i = error;
@@ -544,28 +545,28 @@ int do_pipe(int *fd)
 	this.name = name;
 	this.len = strlen(name);
 	this.hash = inode->i_ino; /* will go */
-	dentry = d_alloc(pipe_mnt->mnt_sb->s_root, &this);
+	dentry = d_alloc(pipe_mnt->mnt_sb->s_root, &this);	//dentry只是一个中介
 	if (!dentry)
 		goto close_f12_inode_i_j;
-	dentry->d_op = &pipefs_dentry_operations;
-	d_add(dentry, inode);
-	f1->f_vfsmnt = f2->f_vfsmnt = mntget(mntget(pipe_mnt));
+	dentry->d_op = &pipefs_dentry_operations;		//目录项相关的操作
+	d_add(dentry, inode);							//建立链接
+	f1->f_vfsmnt = f2->f_vfsmnt = mntget(mntget(pipe_mnt));  //使用了两次
 	f1->f_dentry = f2->f_dentry = dget(dentry);
 
 	/* read file */
 	f1->f_pos = f2->f_pos = 0;
 	f1->f_flags = O_RDONLY;
-	f1->f_op = &read_pipe_fops;
+	f1->f_op = &read_pipe_fops;		 //一端只读，与inode不同
 	f1->f_mode = 1;
 	f1->f_version = 0;
 
 	/* write file */
 	f2->f_flags = O_WRONLY;
-	f2->f_op = &write_pipe_fops;
+	f2->f_op = &write_pipe_fops;	//一端只写
 	f2->f_mode = 2;
 	f2->f_version = 0;
 
-	fd_install(i, f1);
+	fd_install(i, f1);    //安装
 	fd_install(j, f2);
 	fd[0] = i;
 	fd[1] = j;
@@ -587,7 +588,7 @@ close_f1:
 no_files:
 	return error;	
 }
-
+//kern_mount
 /*
  * pipefs should _never_ be mounted by userland - too much of security hassle,
  * no real gain from having the whole whorehouse mounted. So we don't need
@@ -605,7 +606,7 @@ static int pipefs_statfs(struct super_block *sb, struct statfs *buf)
 static struct super_operations pipefs_ops = {
 	statfs:		pipefs_statfs,
 };
-
+//filp_close
 static struct super_block * pipefs_read_super(struct super_block *sb, void *data, int silent)
 {
 	struct inode *root = new_inode(sb);
