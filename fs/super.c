@@ -94,7 +94,7 @@ static void put_filesystem(struct file_system_type *fs)
 static struct file_system_type **find_filesystem(const char *name)
 {
 	struct file_system_type **p;
-	for (p=&file_systems; *p; p=&(*p)->next)
+	for (p=&file_systems; *p; p=&(*p)->next)  //¿¿¿¿
 		if (strcmp((*p)->name,name) == 0)
 			break;
 	return p;
@@ -258,17 +258,17 @@ int get_filesystem_list(char * buf)
 	read_unlock(&file_systems_lock);
 	return len;
 }
-
+//¿¿¿¿¿¿¿¿¿
 struct file_system_type *get_fs_type(const char *name)
 {
 	struct file_system_type *fs;
 	
 	read_lock(&file_systems_lock);
-	fs = *(find_filesystem(name));
-	if (fs && !try_inc_mod_count(fs->owner))
+	fs = *(find_filesystem(name));  //¿¿¿¿¿¿¿¿¿¿
+	if (fs && !try_inc_mod_count(fs->owner))	//¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿
 		fs = NULL;
 	read_unlock(&file_systems_lock);
-	if (!fs && (request_module(name) == 0)) {
+	if (!fs && (request_module(name) == 0)) {	//¿¿¿¿¿¿¿¿¿¿¿¿¿¿
 		read_lock(&file_systems_lock);
 		fs = *(find_filesystem(name));
 		if (fs && !try_inc_mod_count(fs->owner))
@@ -327,20 +327,20 @@ static struct vfsmount *add_vfsmnt(struct nameidata *nd,
 			mnt->mnt_devname = name;
 		}
 	}
-	mnt->mnt_owner = current->uid;
+	mnt->mnt_owner = current->uid;  //¿¿¿
 	atomic_set(&mnt->mnt_count,1);
-	mnt->mnt_sb = sb;
+	mnt->mnt_sb = sb;			//sb
 
 	spin_lock(&dcache_lock);
 	if (nd && !IS_ROOT(nd->dentry) && d_unhashed(nd->dentry))
 		goto fail;
-	mnt->mnt_root = dget(root);
-	mnt->mnt_mountpoint = nd ? dget(nd->dentry) : dget(root);
-	mnt->mnt_parent = nd ? mntget(nd->mnt) : mnt;
+	mnt->mnt_root = dget(root);	//¿
+	mnt->mnt_mountpoint = nd ? dget(nd->dentry) : dget(root);	//¿¿
+	mnt->mnt_parent = nd ? mntget(nd->mnt) : mnt;	//¿¿
 
 	if (nd) {
-		list_add(&mnt->mnt_child, &nd->mnt->mnt_mounts);
-		list_add(&mnt->mnt_clash, &nd->dentry->d_vfsmnt);
+		list_add(&mnt->mnt_child, &nd->mnt->mnt_mounts);	//¿¿¿mnt_mounts
+		list_add(&mnt->mnt_clash, &nd->dentry->d_vfsmnt);   //¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿
 	} else {
 		INIT_LIST_HEAD(&mnt->mnt_child);
 		INIT_LIST_HEAD(&mnt->mnt_clash);
@@ -723,7 +723,7 @@ static struct super_block * read_super(kdev_t dev, struct block_device *bdev,
 				       void *data, int silent)
 {
 	struct super_block * s;
-	s = get_empty_super();
+	s = get_empty_super();		//get a super_block
 	if (!s)
 		goto out;
 	s->s_dev = dev;
@@ -737,7 +737,7 @@ static struct super_block * read_super(kdev_t dev, struct block_device *bdev,
 	sema_init(&s->s_dquot.dqoff_sem, 1);
 	s->s_dquot.flags = 0;
 	lock_super(s);
-	if (!type->read_super(s, data, silent))
+	if (!type->read_super(s, data, silent))  //ext2_read_super
 		goto out_fail;
 	unlock_super(s);
 	/* tell bdcache that we are going to keep this one */
@@ -782,6 +782,7 @@ void put_unnamed_dev(kdev_t dev)
 			kdevname(dev));
 }
 
+//get sb for physical device
 static struct super_block *get_sb_bdev(struct file_system_type *fs_type,
 	char *dev_name, int flags, void * data)
 {
@@ -793,33 +794,34 @@ static struct super_block *get_sb_bdev(struct file_system_type *fs_type,
 	kdev_t dev;
 	int error = 0;
 	/* What device it is? */
-	if (!dev_name || !*dev_name)
+	if (!dev_name || !*dev_name)	//is a correct name
 		return ERR_PTR(-EINVAL);
 	if (path_init(dev_name, LOOKUP_FOLLOW|LOOKUP_POSITIVE, &nd))
 		error = path_walk(dev_name, &nd);
 	if (error)
 		return ERR_PTR(error);
+
 	inode = nd.dentry->d_inode;
 	error = -ENOTBLK;
-	if (!S_ISBLK(inode->i_mode))
+	if (!S_ISBLK(inode->i_mode))  //is a blk
 		goto out;
 	error = -EACCES;
 	if (IS_NODEV(inode))
 		goto out;
-	bdev = inode->i_bdev;
+	bdev = inode->i_bdev;  //block_device
 	bdops = devfs_get_ops ( devfs_get_handle_from_inode (inode) );
-	if (bdops) bdev->bd_op = bdops;
+	if (bdops) bdev->bd_op = bdops;	//set the ops
 	/* Done with lookups, semaphore down */
 	down(&mount_sem);
 	dev = to_kdev_t(bdev->bd_dev);
-	sb = get_super(dev);
+	sb = get_super(dev);	//get super_block
 	if (sb) {
 		if (fs_type == sb->s_type &&
 		    ((flags ^ sb->s_flags) & MS_RDONLY) == 0) {
 			path_release(&nd);
 			return sb;
 		}
-	} else {
+	} else {  //get super_block fail
 		mode_t mode = FMODE_READ; /* we always need it ;-) */
 		if (!(flags & MS_RDONLY))
 			mode |= FMODE_WRITE;
@@ -831,7 +833,7 @@ static struct super_block *get_sb_bdev(struct file_system_type *fs_type,
 		if (!(flags & MS_RDONLY) && is_read_only(dev))
 			goto out1;
 		error = -EINVAL;
-		sb = read_super(dev, bdev, fs_type, flags, data, 0);
+		sb = read_super(dev, bdev, fs_type, flags, data, 0);	//read super
 		if (sb) {
 			get_filesystem(fs_type);
 			path_release(&nd);
@@ -1126,13 +1128,13 @@ asmlinkage long sys_umount(char * name, int flags)
 	if (IS_ERR(kname))
 		goto out;
 	retval = 0;
-	if (path_init(kname, LOOKUP_POSITIVE|LOOKUP_FOLLOW, &nd))
+	if (path_init(kname, LOOKUP_POSITIVE|LOOKUP_FOLLOW, &nd)) //device dentry itself
 		retval = path_walk(kname, &nd);
 	putname(kname);
 	if (retval)
 		goto out;
 	retval = -EINVAL;
-	if (nd.dentry != nd.mnt->mnt_root)
+	if (nd.dentry != nd.mnt->mnt_root)   //error
 		goto dput_and_out;
 
 	retval = -EPERM;
@@ -1226,7 +1228,7 @@ out1:
 out:
 	return err;
 }
-
+//sys_umount
 /*
  * change filesystem flags. dir should be a physical root of filesystem.
  * If you've mounted a non-root directory somewhere and want to do remount
@@ -1326,19 +1328,19 @@ long do_mount(char * dev_name, char * dir_name, char *type_page,
 
 	if (!dir_name || !*dir_name || !memchr(dir_name, 0, PAGE_SIZE))
 		return -EINVAL;
-	if (dev_name && !memchr(dev_name, 0, PAGE_SIZE))
+	if (dev_name && !memchr(dev_name, 0, PAGE_SIZE))  //dev_name
 		return -EINVAL;
 
 	/* OK, looks good, now let's see what do they want */
 
 	/* just change the flags? - capabilities are checked in do_remount() */
-	if (flags & MS_REMOUNT)
+	if (flags & MS_REMOUNT)		//
 		return do_remount(dir_name, flags & ~MS_REMOUNT,
 				  (char *) data_page);
 
 	/* "mount --bind"? Equivalent to older "mount -t bind" */
 	/* No capabilities? What if users do thousands of these? */
-	if (flags & MS_BIND)
+	if (flags & MS_BIND)		//loop device
 		return do_loopback(dev_name, dir_name);
 
 	/* For the rest we need the type */
@@ -1353,11 +1355,11 @@ long do_mount(char * dev_name, char * dir_name, char *type_page,
 #endif
 
 	/* for the rest we _really_ need capabilities... */
-	if (!capable(CAP_SYS_ADMIN))
+	if (!capable(CAP_SYS_ADMIN))  
 		return -EPERM;
 
 	/* ... filesystem driver... */
-	fstype = get_fs_type(type_page);
+	fstype = get_fs_type(type_page);	//mount -t descriptions
 	if (!fstype)		
 		return -ENODEV;
 
@@ -1369,14 +1371,17 @@ long do_mount(char * dev_name, char * dir_name, char *type_page,
 		goto fs_out;
 
 	/* get superblock, locks mount_sem on success */
-	if (fstype->fs_flags & FS_NOMOUNT)
+	if (fstype->fs_flags & FS_NOMOUNT)  //no permission¿use kern_mount
 		sb = ERR_PTR(-EINVAL);
-	else if (fstype->fs_flags & FS_REQUIRES_DEV)
+	else if (fstype->fs_flags & FS_REQUIRES_DEV)	//has phsical device
 		sb = get_sb_bdev(fstype, dev_name, flags, data_page);
-	else if (fstype->fs_flags & FS_SINGLE)
+	else if (fstype->fs_flags & FS_SINGLE)	//shared super_block,in some virtual filesystems
 		sb = get_sb_single(fstype, flags, data_page);
 	else
-		sb = get_sb_nodev(fstype, flags, data_page);
+		sb = get_sb_nodev(fstype, flags, data_page);	//in somd virtual filesystem
+
+	//DECLARE_FSTYPE_DEV
+
 
 	retval = PTR_ERR(sb);
 	if (IS_ERR(sb))
@@ -1386,6 +1391,7 @@ long do_mount(char * dev_name, char * dir_name, char *type_page,
 	while(d_mountpoint(nd.dentry) && follow_down(&nd.mnt, &nd.dentry))
 		;
 
+	//vfsmount
 	/* Refuse the same filesystem on the same mount point */
 	retval = -EBUSY;
 	if (nd.mnt && nd.mnt->mnt_sb == sb
@@ -1398,7 +1404,7 @@ long do_mount(char * dev_name, char * dir_name, char *type_page,
 	down(&nd.dentry->d_inode->i_zombie);
 	if (!IS_DEADDIR(nd.dentry->d_inode)) {
 		retval = -ENOMEM;
-		mnt = add_vfsmnt(&nd, sb->s_root, dev_name);
+		mnt = add_vfsmnt(&nd, sb->s_root, dev_name);  //install filesystem
 	}
 	up(&nd.dentry->d_inode->i_zombie);
 	if (!mnt)
@@ -1418,9 +1424,14 @@ fail:
 	goto unlock_out;
 }
 
+//
 asmlinkage long sys_mount(char * dev_name, char * dir_name, char * type,
 			  unsigned long flags, void * data)
 {
+	//dev_name
+	//dir_name
+	//type
+	//data
 	int retval;
 	unsigned long data_page;
 	unsigned long type_page;
@@ -1431,16 +1442,16 @@ asmlinkage long sys_mount(char * dev_name, char * dir_name, char * type,
 	if (retval < 0)
 		return retval;
 
-	dir_page = getname(dir_name);
+	dir_page = getname(dir_name); 
 	retval = PTR_ERR(dir_page);
 	if (IS_ERR(dir_page))
 		goto out1;
 
-	retval = copy_mount_options (dev_name, &dev_page);
+	retval = copy_mount_options (dev_name, &dev_page); 
 	if (retval < 0)
 		goto out2;
 
-	retval = copy_mount_options (data, &data_page);
+	retval = copy_mount_options (data, &data_page); 
 	if (retval < 0)
 		goto out3;
 

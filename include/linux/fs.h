@@ -842,15 +842,17 @@ struct dquot_operations {
 	int (*transfer) (struct dentry *, struct iattr *);
 };
 
+//文件系统类型
 struct file_system_type {
 	const char *name;
 	int fs_flags;
-	struct super_block *(*read_super) (struct super_block *, void *, int);
+	struct super_block *(*read_super) (struct super_block *, void *, int);	//读入超级块
 	struct module *owner;
 	struct vfsmount *kern_mnt; /* For kernel mount, if it's FS_SINGLE fs */
 	struct file_system_type * next;
 };
 
+//来申明创建文件系统类型
 #define DECLARE_FSTYPE(var,type,read,flags) \
 struct file_system_type var = { \
 	name:		type, \
@@ -860,13 +862,15 @@ struct file_system_type var = { \
 }
 
 #define DECLARE_FSTYPE_DEV(var,type,read) \
-	DECLARE_FSTYPE(var,type,read,FS_REQUIRES_DEV)
+	DECLARE_FSTYPE(var,type,read,FS_REQUIRES_DEV)   //常规的文件系统，如ext2
 
 /* Alas, no aliases. Too much hassle with bringing module.h everywhere */
 #define fops_get(fops) \
 	(((fops) && (fops)->owner)	\
 		? ( try_inc_mod_count((fops)->owner) ? (fops) : NULL ) \
 		: (fops))
+
+//get_sb_bdev
 
 #define fops_put(fops) \
 do {	\

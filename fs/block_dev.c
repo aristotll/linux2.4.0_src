@@ -498,7 +498,7 @@ const struct block_device_operations * get_blkfops(unsigned int major)
 	/* major 0 is used for non-device mounts */
 	if (major && major < MAX_BLKDEV) {
 #ifdef CONFIG_KMOD
-		if (!blkdevs[major].bdops) {
+		if (!blkdevs[major].bdops) { //是根据设备号来确定设备的
 			char name[20];
 			sprintf(name, "block-major-%d", major);
 			request_module(name);
@@ -612,7 +612,7 @@ int blkdev_get(struct block_device *bdev, mode_t mode, unsigned flags, int kind)
 	kdev_t rdev = to_kdev_t(bdev->bd_dev); /* this should become bdev */
 	down(&bdev->bd_sem);
 	if (!bdev->bd_op)
-		bdev->bd_op = get_blkfops(MAJOR(rdev));
+		bdev->bd_op = get_blkfops(MAJOR(rdev));	//tradition we will set the ops
 	if (bdev->bd_op) {
 		/*
 		 * This crockload is due to bad choice of ->open() type.
@@ -632,7 +632,7 @@ int blkdev_get(struct block_device *bdev, mode_t mode, unsigned flags, int kind)
 			fake_inode->i_rdev = rdev;
 			ret = 0;
 			if (bdev->bd_op->open)
-				ret = bdev->bd_op->open(fake_inode, &fake_file);
+				ret = bdev->bd_op->open(fake_inode, &fake_file);  //打开真正的设备文件，而不是/dev/hda这样的节点
 			if (!ret)
 				atomic_inc(&bdev->bd_openers);
 			else if (!atomic_read(&bdev->bd_openers))

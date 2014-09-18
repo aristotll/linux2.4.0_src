@@ -337,7 +337,7 @@ static inline int __follow_up(struct vfsmount **mnt, struct dentry **base)
 	struct dentry *dentry;
 	spin_lock(&dcache_lock);
 	parent=(*mnt)->mnt_parent;
-	if (parent == *mnt) {
+	if (parent == *mnt) {  //相等时
 		spin_unlock(&dcache_lock);
 		return 0;
 	}
@@ -345,9 +345,9 @@ static inline int __follow_up(struct vfsmount **mnt, struct dentry **base)
 	dentry=dget((*mnt)->mnt_mountpoint);
 	spin_unlock(&dcache_lock);
 	dput(*base);
-	*base = dentry;
+	*base = dentry;	//得到父亲的dentry
 	mntput(*mnt);
-	*mnt = parent;
+	*mnt = parent;	//以及mnt
 	return 1;
 }
 

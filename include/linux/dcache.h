@@ -256,7 +256,7 @@ static __inline__ int d_unhashed(struct dentry *dentry)
 }
 
 extern void dput(struct dentry *);
-
+//判断是否为空
 static __inline__ int d_mountpoint(struct dentry *dentry)
 {
 	return !list_empty(&dentry->d_vfsmnt);
