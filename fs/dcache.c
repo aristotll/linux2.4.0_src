@@ -301,6 +301,7 @@ restart:
  * removed.
  * Called with dcache_lock, drops it and then regains.
  */
+//具体的释放一个dentry结构
 static inline void prune_one_dentry(struct dentry * dentry)
 {
 	struct dentry * parent;
@@ -383,7 +384,7 @@ void prune_dcache(int count)
  * is used to free the dcache before unmounting a file
  * system
  */
-
+//释放相应的dentry
 void shrink_dcache_sb(struct super_block * sb)
 {
 	struct list_head *tmp, *next;
@@ -399,7 +400,7 @@ void shrink_dcache_sb(struct super_block * sb)
 		tmp = next;
 		next = tmp->next;
 		dentry = list_entry(tmp, struct dentry, d_lru);
-		if (dentry->d_sb != sb)
+		if (dentry->d_sb != sb)		//不等于时，也就继续
 			continue;
 		list_del(tmp);
 		list_add(tmp, &dentry_unused);
@@ -421,7 +422,7 @@ repeat:
 		dentry_stat.nr_unused--;
 		list_del(tmp);
 		INIT_LIST_HEAD(tmp);
-		prune_one_dentry(dentry);
+		prune_one_dentry(dentry);	//具体的释放
 		goto repeat;
 	}
 	spin_unlock(&dcache_lock);

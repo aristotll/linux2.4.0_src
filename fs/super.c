@@ -607,6 +607,7 @@ repeat:
  * hold up the sync while mounting a device. (The newly
  * mounted device won't need syncing.)
  */
+//¿¿¿¿¿¿
 void sync_supers(kdev_t dev)
 {
 	struct super_block * sb;
@@ -621,7 +622,7 @@ void sync_supers(kdev_t dev)
 		if (!sb->s_dirt)
 			continue;
 		lock_super(sb);
-		if (sb->s_dev && sb->s_dirt && (!dev || dev == sb->s_dev))
+		if (sb->s_dev && sb->s_dirt && (!dev || dev == sb->s_dev)) //s_dirty¿¿¿¿¿0¿¿¿¿¿¿¿
 			if (sb->s_op && sb->s_op->write_super)
 				sb->s_op->write_super(sb);
 		unlock_super(sb);
@@ -1084,13 +1085,13 @@ static int do_umount(struct vfsmount *mnt, int umount_root, int flags)
 	 * clean.
 	 */
 	shrink_dcache_sb(sb);
-	fsync_dev(sb->s_dev);
+	fsync_dev(sb->s_dev);		//flush the data
 
 	if (sb->s_root->d_inode->i_state) {
 		mntput(mnt);
 		return -EBUSY;
 	}
-
+//sync_inodes
 	/* Something might grab it again - redo checks */
 
 	spin_lock(&dcache_lock);

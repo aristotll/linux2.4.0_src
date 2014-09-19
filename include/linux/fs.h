@@ -667,6 +667,7 @@ struct quota_mount_options
 extern struct list_head super_blocks;
 
 #define sb_entry(list)	list_entry((list), struct super_block, s_list)
+//超级块，内存中数据
 struct super_block {
 	struct list_head	s_list;		/* Keep this first */
 	kdev_t			s_dev;
@@ -728,6 +729,8 @@ struct super_block {
 	 */
 	struct semaphore s_nfsd_free_path_sem;
 };
+
+//ext2_super_block
 
 /*
  * VFS helper functions..

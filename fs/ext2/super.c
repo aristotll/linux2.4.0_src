@@ -380,7 +380,7 @@ static int ext2_check_descriptors (struct super_block * sb)
 }
 
 #define log2(n) ffz(~(n))
-
+//读取超级块
 struct super_block * ext2_read_super (struct super_block * sb, void * data,
 				      int silent)
 {
@@ -391,8 +391,8 @@ struct super_block * ext2_read_super (struct super_block * sb, void * data,
 	unsigned short resgid = EXT2_DEF_RESGID;
 	unsigned long logic_sb_block = 1;
 	unsigned long offset = 0;
-	kdev_t dev = sb->s_dev;
-	int blocksize = BLOCK_SIZE;
+	kdev_t dev = sb->s_dev;		//具体设备的设备号，如/hda
+	int blocksize = BLOCK_SIZE;	//块大小
 	int hblock;
 	int db_count;
 	int i, j;
@@ -412,7 +412,7 @@ struct super_block * ext2_read_super (struct super_block * sb, void * data,
 
 	sb->u.ext2_sb.s_mount_opt = 0;
 	if (!parse_options ((char *) data, &sb_block, &resuid, &resgid,
-	    &sb->u.ext2_sb.s_mount_opt)) {
+	    &sb->u.ext2_sb.s_mount_opt)) {	//用来分析可选项字符串并根据其内容设置一些变量
 		return NULL;
 	}
 

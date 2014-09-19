@@ -233,7 +233,7 @@ static inline void sync_list(struct list_head *head)
 	while ((tmp = head->prev) != head)
 		sync_one(list_entry(tmp, struct inode, i_list), 0);
 }
-
+//super_block
 /**
  *	sync_inodes
  *	@dev: device to sync the inodes from.
@@ -241,10 +241,10 @@ static inline void sync_list(struct list_head *head)
  *	sync_inodes goes through the super block's dirty list, 
  *	writes them out, and puts them back on the normal list.
  */
- 
+ //索引节点的同步
 void sync_inodes(kdev_t dev)
 {
-	struct super_block * sb = sb_entry(super_blocks.next);
+	struct super_block * sb = sb_entry(super_blocks.next);	//凡是改变了索引节点，都会通过i_list链入到super_block中
 
 	/*
 	 * Search the super_blocks array for the device(s) to sync.
