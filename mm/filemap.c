@@ -143,10 +143,10 @@ void __set_page_dirty(struct page *page)
 
 	spin_lock(&pagecache_lock);
 	list_del(&page->list);
-	list_add(&page->list, &mapping->dirty_pages);
+	list_add(&page->list, &mapping->dirty_pages);	//加到文件映射的脏页面队列中
 	spin_unlock(&pagecache_lock);
 
-	mark_inode_dirty_pages(mapping->host);
+	mark_inode_dirty_pages(mapping->host);	
 }
 
 /**

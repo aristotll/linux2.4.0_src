@@ -843,11 +843,11 @@ int swap_duplicate(swp_entry_t entry)
 	/* Swap entry 0 is illegal */
 	if (!entry.val)
 		goto out;
-	type = SWP_TYPE(entry);
+	type = SWP_TYPE(entry);		//找到第几个
 	if (type >= nr_swapfiles)
 		goto bad_file;
 	p = type + swap_info;
-	offset = SWP_OFFSET(entry);
+	offset = SWP_OFFSET(entry);	//找到偏移
 	if (offset >= p->max)
 		goto bad_offset;
 	if (!p->swap_map[offset])
@@ -857,7 +857,7 @@ int swap_duplicate(swp_entry_t entry)
 	 */
 	swap_device_lock(p);
 	if (p->swap_map[offset] < SWAP_MAP_MAX)
-		p->swap_map[offset]++;
+		p->swap_map[offset]++;	//递增使用的计数
 	else {
 		static int overflow = 0;
 		if (overflow++ < 5)

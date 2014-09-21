@@ -35,6 +35,7 @@
  * using a process that no longer actually exists (it might
  * have died while we slept).
  */
+//try_to_free_pages
 //page_table是页面表项，而不是页面表
 static int try_to_swap_out(struct mm_struct * mm, struct vm_area_struct* vma, unsigned long address, pte_t * page_table, int gfp_mask)
 {
@@ -83,7 +84,7 @@ static int try_to_swap_out(struct mm_struct * mm, struct vm_area_struct* vma, un
 	 * bits in hardware.
 	 */
 	pte = ptep_get_and_clear(page_table);	//将page_table所指的表项清成0
-	flush_tlb_page(vma, address);		//冲刷CPU的高速缓存
+	flush_tlb_page(vma, address);			//冲刷CPU的高速缓存
 
 	/*
 	 * Is the page already in the swap cache? If so, then
@@ -93,18 +94,18 @@ static int try_to_swap_out(struct mm_struct * mm, struct vm_area_struct* vma, un
 	 * Return 0, as we didn't actually free any real
 	 * memory, and we should just continue our scan.
 	 */
-	if (PageSwapCache(page)) {
-		entry.val = page->index;
+	if (PageSwapCache(page)) {		//为1的话，说明相应的页面是一个普通的换入和换出页面
+		entry.val = page->index;	//此时的index是一个32位的索引项，实际上也就是指向交换设备上映像的指针
 		if (pte_dirty(pte))
 			set_page_dirty(page);
 set_swap_pte:
 		swap_duplicate(entry);
-		set_pte(page_table, swp_entry_to_pte(entry));
+		set_pte(page_table, swp_entry_to_pte(entry));	//设置对指向页面表项的映射
 drop_pte:
 		UnlockPage(page);
 		mm->rss--;
-		deactivate_page(page);
-		page_cache_release(page);
+		deactivate_page(page);		//设置成不活跃状态
+		page_cache_release(page);	//递减这个页面的使用计数
 out_failed:
 		return 0;
 	}
@@ -123,7 +124,7 @@ out_failed:
 	 * some real work in the future in "refill_inactive()".
 	 */
 	flush_cache_page(vma, address);
-	if (!pte_dirty(pte))
+	if (!pte_dirty(pte))	//如果页面已经脏了
 		goto drop_pte;
 
 	/*
@@ -132,8 +133,8 @@ out_failed:
 	 * entry for it, or we should write it back
 	 * to its own backing store.
 	 */
-	if (page->mapping) {
-		set_page_dirty(page);
+	if (page->mapping) {		//来自文件的映射
+		set_page_dirty(page);	
 		goto drop_pte;
 	}
 
@@ -143,12 +144,12 @@ out_failed:
 	 * we have the swap cache set up to associate the
 	 * page with that swap entry.
 	 */
-	entry = get_swap_page();
+	entry = get_swap_page();	//分配一个盘上页面
 	if (!entry.val)
 		goto out_unlock_restore; /* No swap space left */
 
 	/* Add it to the swap cache and mark it dirty */
-	add_to_swap_cache(page, entry);
+	add_to_swap_cache(page, entry);	//将页面链入到swapper_space队列中
 	set_page_dirty(page);
 	goto set_swap_pte;
 
@@ -171,7 +172,7 @@ out_unlock_restore:
  *
  * (C) 1993 Kai Petzke, wpp@marie.physik.tu-berlin.de
  */
-
+//kreclaimd
 static inline int swap_out_pmd(struct mm_struct * mm, struct vm_area_struct * vma, pmd_t *dir, unsigned long address, unsigned long end, int gfp_mask)
 {
 	pte_t * pte;
@@ -927,7 +928,7 @@ static int do_try_to_free_pages(unsigned int gfp_mask, int user)
 	 */
 	if (free_shortage() || nr_inactive_dirty_pages > nr_free_pages() +
 			nr_inactive_clean_pages())
-		ret += page_launder(gfp_mask, user);
+		ret += page_launder(gfp_mask, user);	//页面换出
 
 	/*
 	 * If needed, we move pages from the active list
@@ -1116,7 +1117,7 @@ int kreclaimd(void *unused)
 	tsk->pgrp = 1;
 	strcpy(tsk->comm, "kreclaimd");
 	sigfillset(&tsk->blocked);
-	current->flags |= PF_MEMALLOC;
+	current->flags |= PF_MEMALLOC;	//页面管理机制的维护者
 
 	while (1) {
 
@@ -1130,6 +1131,7 @@ int kreclaimd(void *unused)
 		 * Move some pages from the inactive_clean lists to
 		 * the free lists, if it is needed.
 		 */
+		//来扫描各个页面管理区的不活跃干净页面队列
 		pgdat = pgdat_list;
 		do {
 			int i;
