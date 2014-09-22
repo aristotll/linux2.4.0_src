@@ -1007,25 +1007,27 @@ void swapin_readahead(swp_entry_t entry)
 			break;
 		}
 		/* Ok, do the async read-ahead now */
-		new_page = read_swap_cache_async(SWP_ENTRY(SWP_TYPE(entry), offset), 0);
+		new_page = read_swap_cache_async(SWP_ENTRY(SWP_TYPE(entry), offset), 0);	//周期性的读入和分配若干页面
 		if (new_page != NULL)
 			page_cache_release(new_page);
 		swap_free(SWP_ENTRY(SWP_TYPE(entry), offset));
 	}
 	return;
 }
-
+//从交换设备上换入这个页面
 static int do_swap_page(struct mm_struct * mm,
 	struct vm_area_struct * vma, unsigned long address,
 	pte_t * page_table, swp_entry_t entry, int write_access)
 {
-	struct page *page = lookup_swap_cache(entry);
+	struct page *page = lookup_swap_cache(entry);	
+	//首先应查看内存页面是否留在swapper_space的换入换出队列中，尚未最后释放的
+	
 	pte_t pte;
 
-	if (!page) {
+	if (!page) {	
 		lock_kernel();
 		swapin_readahead(entry);
-		page = read_swap_cache(entry);
+		page = read_swap_cache(entry);	//分配一个内存页面,并且从盘上将内容读进来
 		unlock_kernel();
 		if (!page)
 			return -1;
@@ -1046,7 +1048,7 @@ static int do_swap_page(struct mm_struct * mm,
 	lock_page(page);
 	swap_free(entry);
 	if (write_access && !is_page_shared(page))
-		pte = pte_mkwrite(pte_mkdirty(pte));
+		pte = pte_mkwrite(pte_mkdirty(pte));	//是可以更改并设置_PAGE_RW的，如果有写保护是到达不到这里的
 	UnlockPage(page);
 
 	set_pte(page_table, pte);
@@ -1162,16 +1164,18 @@ static inline int handle_pte_fault(struct mm_struct *mm,
 	 */
 	spin_lock(&mm->page_table_lock);
 	entry = *pte;
-	if (!pte_present(entry)) {
+	if (!pte_present(entry)) {		//查看是否在内存中，不在的话，进入
 		/*
 		 * If it truly wasn't present, we know that kswapd
 		 * and the PTE updates will not touch it later. So
 		 * drop the lock.
 		 */
 		spin_unlock(&mm->page_table_lock);
-		if (pte_none(entry))
-			return do_no_page(mm, vma, address, write_access, pte);
+		if (pte_none(entry))		//是否有盘上页面
+			return do_no_page(mm, vma, address, write_access, pte); //空的话
 		return do_swap_page(mm, vma, address, pte, pte_to_swp_entry(entry), write_access);
+		//从交换设备上换入这个页面
+	
 	}
 
 	if (write_access) {

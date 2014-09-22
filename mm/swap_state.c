@@ -170,6 +170,7 @@ struct page * lookup_swap_cache(swp_entry_t entry)
 		/*
 		 * Right now the pagecache is 32-bit only.  But it's a 32 bit index. =)
 		 */
+		//再一次查找
 repeat:
 		found = find_lock_page(&swapper_space, entry.val);
 		if (!found)
@@ -221,11 +222,13 @@ struct page * read_swap_cache_async(swp_entry_t entry, int wait)
 	 * Make sure the swap entry is still in use.
 	 */
 	if (!swap_duplicate(entry))	/* Account for the swap cache */
-		goto out;
+	  //先递增了计数，如果在缓冲区队列中找到了，就无需从交换设备读入了
+	  goto out;
+
 	/*
 	 * Look for the page in the swap cache.
 	 */
-	found_page = lookup_swap_cache(entry);
+	found_page = lookup_swap_cache(entry);	//再查找一次
 	if (found_page)
 		goto out_free_swap;
 

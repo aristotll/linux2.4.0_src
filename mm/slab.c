@@ -144,12 +144,14 @@ static unsigned long offslab_limit;
  * free slabs.
  */
 typedef struct slab_s {
-	struct list_head	list;
-	unsigned long		colouroff;
-	void			*s_mem;		/* including colour offset */
-	unsigned int		inuse;		/* num of objs active in slab */
-	kmem_bufctl_t		free;
+	struct list_head	list;				//将一块slab链入到一个专用的缓冲区队列中
+	unsigned long		colouroff;			//为本slab上着色区的大小
+	void			*s_mem;		/* including colour offset */	//指向对象区的起点
+	unsigned int		inuse;		/* num of objs active in slab */	//已分配对象的计数器
+	kmem_bufctl_t		free;				//指明了空闲对象链的第一个对象
 } slab_t;
+
+//kmem_cache_t
 
 #define slab_bufctl(slabp) \
 	((kmem_bufctl_t *)(((slab_t*)slabp)+1))
@@ -181,9 +183,9 @@ typedef struct cpucache_s {
 struct kmem_cache_s {
 /* 1) each alloc & free */
 	/* full, partial first, then free */
-	struct list_head	slabs;
-	struct list_head	*firstnotfull;
-	unsigned int		objsize;
+	struct list_head	slabs;			//用来维持slab队列中的各个指针
+	struct list_head	*firstnotfull;	//指向队列中第一个含有空闲对象的slab
+	unsigned int		objsize;		//原始数据结构的大小	
 	unsigned int	 	flags;	/* constant flags */
 	unsigned int		num;	/* # of objs per slab */
 	spinlock_t		spinlock;
@@ -193,13 +195,14 @@ struct kmem_cache_s {
 
 /* 2) slab additions /removals */
 	/* order of pgs per slab (2^n) */
-	unsigned int		gfporder;
+	unsigned int		gfporder;		//表示slab的介
 
 	/* force GFP flags, e.g. GFP_DMA */
 	unsigned int		gfpflags;
 
-	size_t			colour;		/* cache colouring range */
-	unsigned int		colour_off;	/* colour offset */
+	//着色区
+	size_t			colour;		/* cache colouring range */		//着色区
+	unsigned int		colour_off;	/* colour offset */			
 	unsigned int		colour_next;	/* cache colouring */
 	kmem_cache_t		*slabp_cache;
 	unsigned int		growing;
@@ -215,7 +218,7 @@ struct kmem_cache_s {
 
 /* 3) cache creation/removal */
 	char			name[CACHE_NAMELEN];
-	struct list_head	next;
+	struct list_head	next;		//是用来在cache_cache中建立一个专用缓冲区slab队列的队列
 #ifdef CONFIG_SMP
 /* 4) per-cpu data */
 	cpucache_t		*cpudata[NR_CPUS];
@@ -235,6 +238,8 @@ struct kmem_cache_s {
 #endif
 #endif
 };
+//kmem_cache_alloc
+//kmem_cache_create
 
 /* internal c_flags */
 #define	CFLGS_OFF_SLAB	0x010000UL	/* slab management in own cache */
@@ -1127,11 +1132,11 @@ static int kmem_cache_grow (kmem_cache_t * cachep, int flags)
 	 */
 
 	/* Get mem for the objs. */
-	if (!(objp = kmem_getpages(cachep, flags)))
+	if (!(objp = kmem_getpages(cachep, flags)))	//分配用于具体对象缓冲区的页面
 		goto failed;
 
 	/* Get slab management. */
-	if (!(slabp = kmem_cache_slabmgmt(cachep, objp, offset, local_flags)))
+	if (!(slabp = kmem_cache_slabmgmt(cachep, objp, offset, local_flags)))	//建立起slab信息
 		goto opps1;
 
 	/* Nasty!!!!!! I hope this is OK. */
@@ -1144,7 +1149,7 @@ static int kmem_cache_grow (kmem_cache_t * cachep, int flags)
 		page++;
 	} while (--i);
 
-	kmem_cache_init_objs(cachep, slabp, ctor_flags);
+	kmem_cache_init_objs(cachep, slabp, ctor_flags);	//进行slab的初始化
 
 	spin_lock_irqsave(&cachep->spinlock, save_flags);
 	cachep->growing--;
@@ -1166,7 +1171,7 @@ failed:
 	spin_unlock_irqrestore(&cachep->spinlock, save_flags);
 	return 0;
 }
-
+//kmem_cache_free
 /*
  * Perform extra freeing checks:
  * - detect double free
@@ -1207,7 +1212,7 @@ static inline void kmem_cache_alloc_head(kmem_cache_t *cachep, int flags)
 	}
 #endif
 }
-
+//找到了一个，就添加到队列尾，并更新参数
 static inline void * kmem_cache_alloc_one_tail (kmem_cache_t *cachep,
 							 slab_t *slabp)
 {
@@ -1254,7 +1259,7 @@ static inline void * kmem_cache_alloc_one_tail (kmem_cache_t *cachep,
 								\
 	/* Get slab alloc is to come from. */			\
 	{							\
-		struct list_head* p = cachep->firstnotfull;	\
+		struct list_head* p = cachep->firstnotfull;	\	\第一个含有空闲的对象\
 		if (p == &cachep->slabs)			\
 			goto alloc_new_slab;			\
 		slabp = list_entry(p,slab_t, list);	\
@@ -1293,7 +1298,7 @@ static inline void * __kmem_cache_alloc (kmem_cache_t *cachep, int flags)
 	unsigned long save_flags;
 	void* objp;
 
-	kmem_cache_alloc_head(cachep, flags);
+	kmem_cache_alloc_head(cachep, flags);		//为调试而用的，是一个空函数
 try_again:
 	local_irq_save(save_flags);
 #ifdef CONFIG_SMP
@@ -1327,7 +1332,7 @@ alloc_new_slab:
 alloc_new_slab_nolock:
 #endif
 	local_irq_restore(save_flags);
-	if (kmem_cache_grow(cachep, flags))
+	if (kmem_cache_grow(cachep, flags))		//如果没有空闲的，就生长起来
 		/* Someone may have stolen our objs.  Doesn't matter, we'll
 		 * just come back here again.
 		 */
@@ -1375,7 +1380,7 @@ static inline void kmem_cache_free_one(kmem_cache_t *cachep, void *objp)
 		slabp = (void*)((unsigned long)objp&(~(PAGE_SIZE-1)));
 	 else
 	 */
-	slabp = GET_PAGE_SLAB(virt_to_page(objp));
+	slabp = GET_PAGE_SLAB(virt_to_page(objp));	//得到一个slab
 
 #if DEBUG
 	if (cachep->flags & SLAB_DEBUG_INITIAL)
@@ -1409,9 +1414,9 @@ static inline void kmem_cache_free_one(kmem_cache_t *cachep, void *objp)
 	STATS_DEC_ACTIVE(cachep);
 	
 	/* fixup slab chain */
-	if (slabp->inuse-- == cachep->num)
+	if (slabp->inuse-- == cachep->num)	//如果原来slab上没有空闲对象，现在有了
 		goto moveslab_partial;
-	if (!slabp->inuse)
+	if (!slabp->inuse)					//所有的对象都空闲了
 		goto moveslab_free;
 	return;
 
@@ -1423,7 +1428,7 @@ moveslab_partial:
 	{
 		struct list_head *t = cachep->firstnotfull;
 
-		cachep->firstnotfull = &slabp->list;
+		cachep->firstnotfull = &slabp->list;	//指向空闲的
 		if (slabp->list.next == t)
 			return;
 		list_del(&slabp->list);
@@ -1446,7 +1451,7 @@ moveslab_free:
 		return;
 	}
 }
-
+//kmalloc
 #ifdef CONFIG_SMP
 static inline void __free_block (kmem_cache_t* cachep,
 							void** objpp, int len)
@@ -1533,7 +1538,7 @@ void * kmalloc (size_t size, int flags)
 {
 	cache_sizes_t *csizep = cache_sizes;
 
-	for (; csizep->cs_size; csizep++) {
+	for (; csizep->cs_size; csizep++) {	//从结构数组中从小到大，找到第一个满足缓冲区大小要求的队列
 		if (size > csizep->cs_size)
 			continue;
 		return __kmem_cache_alloc(flags & GFP_DMA ?
@@ -1542,7 +1547,7 @@ void * kmalloc (size_t size, int flags)
 	BUG(); // too big size
 	return NULL;
 }
-
+//kmem_cache_reap
 /**
  * kmem_cache_free - Deallocate an object
  * @cachep: The cache the allocation was from.
@@ -1704,6 +1709,7 @@ static void enable_all_cpucaches (void)
  *
  * Called from try_to_free_page().
  */
+//对空闲slab的收割，回收
 void kmem_cache_reap (int gfp_mask)
 {
 	slab_t *slabp;
@@ -1724,6 +1730,10 @@ void kmem_cache_reap (int gfp_mask)
 	best_pages = 0;
 	best_cachep = NULL;
 	searchp = clock_searchp;
+
+	//clock_searchp用来记录下一次扫描的起点
+	//并不是每一次都扫描全部的
+	//这个函数扫描slab队列的队列cache_cache，从中发现可供“收割”的slab队列；
 	do {
 		unsigned int pages;
 		struct list_head* p;
