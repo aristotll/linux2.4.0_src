@@ -27,7 +27,7 @@ static void wake_up_partner(struct inode* inode)
 {
 	wake_up_interruptible(PIPE_WAIT(*inode));
 }
-
+//用于有名管道的打开
 static int fifo_open(struct inode *inode, struct file *filp)
 {
 	int ret;
@@ -40,30 +40,32 @@ static int fifo_open(struct inode *inode, struct file *filp)
 	if (!inode->i_pipe) {
 		ret = -ENOMEM;
 		if(!pipe_new(inode))
+//首次打开时，该管道的缓冲区，尚未分配，所以分配一个pipe_inode_info构建缓冲区，以后再有打开同一个FIFO文件时
+//，就可以跳过了
 			goto err_nocleanup;
 	}
 	filp->f_version = 0;
 
 	switch (filp->f_mode) {
-	case 1:
+	case 1:									//只读方式
 	/*
 	 *  O_RDONLY
 	 *  POSIX.1 says that O_NONBLOCK means return with the FIFO
 	 *  opened, even when there is no process writing the FIFO.
 	 */
-		filp->f_op = &read_fifo_fops;
+		filp->f_op = &read_fifo_fops;		//
 		PIPE_RCOUNTER(*inode)++;
-		if (PIPE_READERS(*inode)++ == 0)
-			wake_up_partner(inode);
+		if (PIPE_READERS(*inode)++ == 0)	//读者的个数为0
+			wake_up_partner(inode);			//唤醒写者
 
-		if (!PIPE_WRITERS(*inode)) {
-			if ((filp->f_flags & O_NONBLOCK)) {
+		if (!PIPE_WRITERS(*inode)) {			//是否有写的资源
+			if ((filp->f_flags & O_NONBLOCK)) {	//没有数据也不等待，并不阻塞。直接返回
 				/* suppress POLLHUP until we have
 				 * seen a writer */
-				filp->f_version = PIPE_WCOUNTER(*inode);
+				filp->f_version = PIPE_WCOUNTER(*inode);	//但是对写端增加计数
 			} else 
 			{
-				wait_for_partner(inode, &PIPE_WCOUNTER(*inode));
+				wait_for_partner(inode, &PIPE_WCOUNTER(*inode)); //读端进入休眠	
 				if(signal_pending(current))
 					goto err_rd;
 			}
