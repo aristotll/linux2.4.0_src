@@ -44,7 +44,7 @@ static struct module kernel_module =
 	name: 			"",
 	uc:	 		{ATOMIC_INIT(1)},
 	flags:			MOD_RUNNING,
-	syms:			__start___ksymtab,
+	syms:			__start___ksymtab,		//内核符号表的起始地址
 	ex_table_start:		__start___ex_table,
 	ex_table_end:		__stop___ex_table,
 	kallsyms_start:		__start___kallsyms,
@@ -284,36 +284,37 @@ sys_create_module(const char *name_user, size_t size)
 	long namelen, error;
 	struct module *mod;
 
-	if (!capable(CAP_SYS_MODULE))
+	if (!capable(CAP_SYS_MODULE))	//只有特权用户才允许在内核中创建模块
 		return -EPERM;
 	lock_kernel();
 	if ((namelen = get_mod_name(name_user, &name)) < 0) {
 		error = namelen;
 		goto err0;
 	}
-	if (size < sizeof(struct module)+namelen) {
+	if (size < sizeof(struct module)+namelen) {	//模块的大小应该大于模块本身的结构体以及名字长度
 		error = -EINVAL;
 		goto err1;
 	}
-	if (find_module(name) != NULL) {
+	if (find_module(name) != NULL) {	//判断是否有同名的模块
 		error = -EEXIST;
 		goto err1;
 	}
-	if ((mod = (struct module *)module_map(size)) == NULL) {
+	if ((mod = (struct module *)module_map(size)) == NULL) {	//分配空间，使用的是vmalloc
 		error = -ENOMEM;
 		goto err1;
 	}
 
+	//开头给module结构体使用
 	memset(mod, 0, sizeof(*mod));
 	mod->size_of_struct = sizeof(*mod);
-	mod->next = module_list;
+	mod->next = module_list;	//链入指向头
 	mod->name = (char *)(mod + 1);
 	mod->size = size;
-	memcpy((char*)(mod+1), name, namelen+1);
+	memcpy((char*)(mod+1), name, namelen+1);	//后面是名字
 
-	put_mod_name(name);
+	put_mod_name(name);		//释放该空间
 
-	module_list = mod;	/* link it in */
+	module_list = mod;	/* link it in */	//头指向该模块
 
 	error = (long) mod;
 	goto err0;
@@ -344,7 +345,7 @@ sys_init_module(const char *name_user, struct module *mod_user)
 		error = namelen;
 		goto err0;
 	}
-	if ((mod = find_module(name)) == NULL) {
+	if ((mod = find_module(name)) == NULL) { //找到
 		error = -ENOENT;
 		goto err1;
 	}
@@ -352,6 +353,7 @@ sys_init_module(const char *name_user, struct module *mod_user)
 	/* Check module header size.  We allow a bit of slop over the
 	   size we are familiar with to cope with a version of insmod
 	   for a newer kernel.  But don't over do it. */
+	//用户空的module和内核空间的不一样
 	if ((error = get_user(mod_user_size, &mod_user->size_of_struct)) != 0)
 		goto err1;
 	if (mod_user_size < (unsigned long)&((struct module *)0L)->persist_start
@@ -365,14 +367,16 @@ sys_init_module(const char *name_user, struct module *mod_user)
 
 	/* Hold the current contents while we play with the user's idea
 	   of righteousness.  */
-	mod_tmp = *mod;
+	mod_tmp = *mod;		//先将它的大小保存到mod_tmp中，堆栈内存
 	name_tmp = kmalloc(strlen(mod->name) + 1, GFP_KERNEL);	/* Where's kstrdup()? */
 	if (name_tmp == NULL) {
 		error = -ENOMEM;
 		goto err1;
 	}
+	//先拷贝一个名字
 	strcpy(name_tmp, mod->name);
 
+	//从用户空间拷贝得到mod_user
 	error = copy_from_user(mod, mod_user, mod_user_size);
 	if (error) {
 		error = -EFAULT;
@@ -875,6 +879,9 @@ asmlinkage long
 sys_query_module(const char *name_user, int which, char *buf, size_t bufsize,
 		 size_t *ret)
 {
+	//name_user为查询对象所在模块的模块名
+	//which为查询类型
+	//
 	struct module *mod;
 	int err;
 
@@ -885,7 +892,7 @@ sys_query_module(const char *name_user, int which, char *buf, size_t bufsize,
 		long namelen;
 		char *name;
 
-		if ((namelen = get_mod_name(name_user, &name)) < 0) {
+		if ((namelen = get_mod_name(name_user, &name)) < 0) {	//获得模块名
 			err = namelen;
 			goto out;
 		}
@@ -904,10 +911,10 @@ sys_query_module(const char *name_user, int which, char *buf, size_t bufsize,
 	case 0:
 		err = 0;
 		break;
-	case QM_MODULES:
+	case QM_MODULES:	//查询目标模块的模块名
 		err = qm_modules(buf, bufsize, ret);
 		break;
-	case QM_DEPS:
+	case QM_DEPS:		//查看查询模块的依赖
 		err = qm_deps(mod, buf, bufsize, ret);
 		break;
 	case QM_REFS:
@@ -927,7 +934,7 @@ out:
 	unlock_kernel();
 	return err;
 }
-
+//sys_create_module
 /*
  * Copy the kernel symbol table to user space.  If the argument is
  * NULL, just return the size of the table.
@@ -1006,6 +1013,7 @@ find_module(const char *name)
 			break;
 	}
 
+	//根据模块名字，找到对应的模块
 	return mod;
 }
 

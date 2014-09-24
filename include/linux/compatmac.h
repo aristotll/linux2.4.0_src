@@ -93,7 +93,7 @@ static inline unsigned char get_irq (unsigned char bus, unsigned char fn)
 	pcibios_read_config_byte (bus, fn, PCI_INTERRUPT_LINE, &t);
 	return t;
 }
-
+//__ioremap
 static inline void *ioremap(unsigned long base, long length)
 {
 	if (base < 0x100000) return (void *)base;

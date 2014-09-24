@@ -66,7 +66,7 @@ static int remap_area_pages(unsigned long address, unsigned long phys_addr,
 	unsigned long end = address + size;
 
 	phys_addr -= address;
-	dir = pgd_offset(&init_mm, address);
+	dir = pgd_offset(&init_mm, address);		//内核专属的mm_struct
 	flush_cache_all();
 	if (address >= end)
 		BUG();
@@ -98,6 +98,7 @@ static int remap_area_pages(unsigned long address, unsigned long phys_addr,
  * have to convert them into an offset in a page-aligned mapping, but the
  * caller shouldn't need to know that small detail.
  */
+//实际的工作
 void * __ioremap(unsigned long phys_addr, unsigned long size, unsigned long flags)
 {
 	void * addr;
@@ -106,26 +107,26 @@ void * __ioremap(unsigned long phys_addr, unsigned long size, unsigned long flag
 
 	/* Don't allow wraparound or zero size */
 	last_addr = phys_addr + size - 1;
-	if (!size || last_addr < phys_addr)
+	if (!size || last_addr < phys_addr)		//size不能为0，也不能太大，超越了32位地址空间的限制
 		return NULL;
 
 	/*
 	 * Don't remap the low PCI/ISA area, it's always mapped..
 	 */
-	if (phys_addr >= 0xA0000 && last_addr < 0x100000)
+	if (phys_addr >= 0xA0000 && last_addr < 0x100000)	//这一块地址用于PCI/ISA的地址，已经映射好了
 		return phys_to_virt(phys_addr);
 
 	/*
 	 * Don't allow anybody to remap normal RAM that we're using..
 	 */
-	if (phys_addr < virt_to_phys(high_memory)) {
+	if (phys_addr < virt_to_phys(high_memory)) {	  //这是正常物理地址所设置的上限，小于这个上限以后，表示有冲突的
 		char *t_addr, *t_end;
 		struct page *page;
 
 		t_addr = __va(phys_addr);
 		t_end = t_addr + (size - 1);
 	   
-		for(page = virt_to_page(t_addr); page <= virt_to_page(t_end); page++)
+		for(page = virt_to_page(t_addr); page <= virt_to_page(t_end); page++)	//要通过检查的
 			if(!PageReserved(page))
 				return NULL;
 	}
@@ -133,18 +134,18 @@ void * __ioremap(unsigned long phys_addr, unsigned long size, unsigned long flag
 	/*
 	 * Mappings have to be page-aligned
 	 */
-	offset = phys_addr & ~PAGE_MASK;
+	offset = phys_addr & ~PAGE_MASK;		//
 	phys_addr &= PAGE_MASK;
 	size = PAGE_ALIGN(last_addr) - phys_addr;
 
 	/*
 	 * Ok, go for it..
 	 */
-	area = get_vm_area(size, VM_IOREMAP);
+	area = get_vm_area(size, VM_IOREMAP);		//从内核的虚存空间队列去查找，而不是用户的虚存空间
 	if (!area)
 		return NULL;
 	addr = area->addr;
-	if (remap_area_pages(VMALLOC_VMADDR(addr), phys_addr, size, flags)) {
+	if (remap_area_pages(VMALLOC_VMADDR(addr), phys_addr, size, flags)) {	//对每一个页面目录项建立映射
 		vfree(addr);
 		return NULL;
 	}
@@ -156,3 +157,6 @@ void iounmap(void *addr)
 	if (addr > high_memory)
 		return vfree((void *) (PAGE_MASK & (unsigned long) addr));
 }
+
+
+//sys_query_module

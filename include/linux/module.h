@@ -34,27 +34,27 @@ struct kernel_sym
 	char name[60];		/* should have been 64-sizeof(long); oh well */
 };
 
-struct module_symbol
+struct module_symbol	//表示模块的一个符号
 {
-	unsigned long value;
-	const char *name;
+	unsigned long value;	//符号名
+	const char *name;		//所在的地址
 };
 
-struct module_ref
+struct module_ref		//用来表示依赖关系
 {
 	struct module *dep;	/* "parent" pointer */
 	struct module *ref;	/* "child" pointer */
 	struct module_ref *next_ref;
 };
-
+//kernel_module
 /* TBD */
 struct module_persist;
 
 struct module
 {
-	unsigned long size_of_struct;	/* == sizeof(module) */
-	struct module *next;
-	const char *name;
+	unsigned long size_of_struct;	/* == sizeof(module) */	
+	struct module *next;		//统一在一个链表中
+	const char *name;			//模块名
 	unsigned long size;
 
 	union
@@ -65,14 +65,14 @@ struct module
 
 	unsigned long flags;		/* AUTOCLEAN et al */
 
-	unsigned nsyms;
+	unsigned nsyms;					//指明了数组的大小
 	unsigned ndeps;
 
-	struct module_symbol *syms;
-	struct module_ref *deps;
-	struct module_ref *refs;
-	int (*init)(void);
-	void (*cleanup)(void);
+	struct module_symbol *syms;		//指向一个module_symbol数组
+	struct module_ref *deps;		//指向依赖的模块
+	struct module_ref *refs;		//指向被被依赖的模块
+	int (*init)(void);				//分别指向初始函数
+	void (*cleanup)(void);			//以及指向最后的离开函数
 	const struct exception_table_entry *ex_table_start;
 	const struct exception_table_entry *ex_table_end;
 #ifdef __alpha__
