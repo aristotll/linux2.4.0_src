@@ -394,27 +394,29 @@ sys_init_module(const char *name_user, struct module *mod_user)
 
 	/* Make sure all interesting pointers are sane.  */
 
-	if (!mod_bound(mod->name, namelen, mod)) {
+	if (!mod_bound(mod->name, namelen, mod)) {		//用来检查用户提供的指针所指的对象是否落在模块的边界内
 		printk(KERN_ERR "init_module: mod->name out of bounds.\n");
 		goto err2;
 	}
-	if (mod->nsyms && !mod_bound(mod->syms, mod->nsyms, mod)) {
+	if (mod->nsyms && !mod_bound(mod->syms, mod->nsyms, mod)) {			//符号表
 		printk(KERN_ERR "init_module: mod->syms out of bounds.\n");
 		goto err2;
 	}
-	if (mod->ndeps && !mod_bound(mod->deps, mod->ndeps, mod)) {
+	if (mod->ndeps && !mod_bound(mod->deps, mod->ndeps, mod)) {			//deps数据
 		printk(KERN_ERR "init_module: mod->deps out of bounds.\n");
 		goto err2;
 	}
-	if (mod->init && !mod_bound(mod->init, 0, mod)) {
+	if (mod->init && !mod_bound(mod->init, 0, mod)) {					//init函数
 		printk(KERN_ERR "init_module: mod->init out of bounds.\n");
 		goto err2;
 	}
-	if (mod->cleanup && !mod_bound(mod->cleanup, 0, mod)) {
+	if (mod->cleanup && !mod_bound(mod->cleanup, 0, mod)) {				//cleanup函数
 		printk(KERN_ERR "init_module: mod->cleanup out of bounds.\n");
 		goto err2;
 	}
-	if (mod->ex_table_start > mod->ex_table_end
+
+	//异常处理描述表
+	if (mod->ex_table_start > mod->ex_table_end							
 	    || (mod->ex_table_start &&
 		!((unsigned long)mod->ex_table_start >= ((unsigned long)mod + mod->size_of_struct)
 		  && ((unsigned long)mod->ex_table_end
@@ -435,7 +437,7 @@ sys_init_module(const char *name_user, struct module *mod_user)
 		goto err2;
 	}
 #endif
-	if (mod_member_present(mod, can_unload)
+	if (mod_member_present(mod, can_unload)		//看是否用户包含这个字段
 	    && mod->can_unload && !mod_bound(mod->can_unload, 0, mod)) {
 		printk(KERN_ERR "init_module: mod->can_unload out of bounds.\n");
 		goto err2;
@@ -471,6 +473,7 @@ sys_init_module(const char *name_user, struct module *mod_user)
 
 	/* Check that the user isn't doing something silly with the name.  */
 
+	//得到用户空间的名称
 	if ((n_namelen = get_mod_name(mod->name - (unsigned long)mod
 				      + (unsigned long)mod_user,
 				      &n_name)) < 0) {
@@ -478,6 +481,8 @@ sys_init_module(const char *name_user, struct module *mod_user)
 		error = n_namelen;
 		goto err2;
 	}
+
+	//两个名称可能不一致
 	if (namelen != n_namelen || strcmp(n_name, mod_tmp.name) != 0) {
 		printk(KERN_ERR "init_module: changed module name to "
 				"`%s' from `%s'\n",
@@ -486,7 +491,7 @@ sys_init_module(const char *name_user, struct module *mod_user)
 	}
 
 	/* Ok, that's about all the sanity we can stomach; copy the rest.  */
-
+	//拷贝用户空间的module,除结构体本身的那部分
 	if (copy_from_user((char *)mod+mod_user_size,
 			   (char *)mod_user+mod_user_size,
 			   mod->size-mod_user_size)) {
@@ -505,6 +510,7 @@ sys_init_module(const char *name_user, struct module *mod_user)
 	mod->refs = NULL;
 
 	/* Sanity check the module's dependents */
+	//对它依赖的每一个模块，看是否存在
 	for (i = 0, dep = mod->deps; i < mod->ndeps; ++i, ++dep) {
 		struct module *o, *d = dep->dep;
 
@@ -530,22 +536,22 @@ sys_init_module(const char *name_user, struct module *mod_user)
 	for (i = 0, dep = mod->deps; i < mod->ndeps; ++i, ++dep) {
 		struct module *d = dep->dep;
 
-		dep->ref = mod;
-		dep->next_ref = d->refs;
-		d->refs = dep;
+		dep->ref = mod;				//指向自身
+		dep->next_ref = d->refs;	//指向依赖它的
+		d->refs = dep;				//更新头节点
 		/* Being referenced by a dependent module counts as a
 		   use as far as kmod is concerned.  */
 		d->flags |= MOD_USED_ONCE;
 	}
 
 	/* Free our temporary memory.  */
-	put_mod_name(n_name);
+	put_mod_name(n_name);	//释放临时缓冲的name和n_name
 	put_mod_name(name);
 
 	/* Initialize the module.  */
 	mod->flags |= MOD_INITIALIZING;
 	atomic_set(&mod->uc.usecount,1);
-	if (mod->init && (error = mod->init()) != 0) {
+	if (mod->init && (error = mod->init()) != 0) {		//启动init函数
 		atomic_set(&mod->uc.usecount,0);
 		mod->flags &= ~MOD_INITIALIZING;
 		if (error > 0)	/* Buggy module */
@@ -571,7 +577,7 @@ err0:
 	kfree(name_tmp);
 	return error;
 }
-
+//sys_delete_module
 static spinlock_t unload_lock = SPIN_LOCK_UNLOCKED;
 int try_inc_mod_count(struct module *mod)
 {
