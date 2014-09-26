@@ -62,7 +62,7 @@ use_init_fs_context(void)
 	read_unlock(&init_fs->lock);
 
 	/* FIXME - unsafe ->fs access */
-	our_fs = current->fs;
+	our_fs = current->fs;				//当前进程的current
 	our_fs->umask = init_fs->umask;
 	set_fs_root(our_fs, rootmnt, root);
 	set_fs_pwd(our_fs, pwdmnt, pwd);
@@ -91,6 +91,7 @@ int exec_usermodehelper(char *program_path, char *argv[], char *envp[])
 	curtask->session = 1;
 	curtask->pgrp = 1;
 
+	//从init_task结构中直接继承其根目录等资源
 	use_init_fs_context();
 
 	/* Prevent parent user process from sending signals to child.
@@ -100,13 +101,13 @@ int exec_usermodehelper(char *program_path, char *argv[], char *envp[])
 	   the signal just right.
 	*/
 	spin_lock_irq(&curtask->sigmask_lock);
-	sigemptyset(&curtask->blocked);
+	sigemptyset(&curtask->blocked);		//把父进程继承的待处理信号全部冲刷掉
 	flush_signals(curtask);
-	flush_signal_handlers(curtask);
+	flush_signal_handlers(curtask);		//冲刷	
 	recalc_sigpending(curtask);
 	spin_unlock_irq(&curtask->sigmask_lock);
 
-	for (i = 0; i < curtask->files->max_fds; i++ ) {
+	for (i = 0; i < curtask->files->max_fds; i++ ) {	//关闭0，1，2所代表的文件描述符
 		if (curtask->files->fd[i]) close(i);
 	}
 
@@ -121,7 +122,7 @@ int exec_usermodehelper(char *program_path, char *argv[], char *envp[])
 	}
 
 	/* Give kmod all effective privileges.. */
-	curtask->euid = curtask->fsuid = 0;
+	curtask->euid = curtask->fsuid = 0;		//变成特权进程，内核线程，安全性不用考虑了
 	curtask->egid = curtask->fsgid = 0;
 	cap_set_full(curtask->cap_effective);
 
@@ -129,7 +130,7 @@ int exec_usermodehelper(char *program_path, char *argv[], char *envp[])
 	set_fs(KERNEL_DS);
 
 	/* Go, go, go... */
-	if (execve(program_path, argv, envp) < 0)
+	if (execve(program_path, argv, envp) < 0)		//最后也就是执行/sbin/modprobe
 		return -errno;
 	return 0;
 }
@@ -144,7 +145,9 @@ char modprobe_path[256] = "/sbin/modprobe";
 static int exec_modprobe(void * module_name)
 {
 	static char * envp[] = { "HOME=/", "TERM=linux", "PATH=/sbin:/usr/sbin:/bin:/usr/bin", NULL };
-	char *argv[] = { modprobe_path, "-s", "-k", "--", (char*)module_name, NULL };
+	char *argv[] = { modprobe_path, "-s", "-k", "--", (char*)module_name, NULL };	
+	//-s表示安装过程中产生的信息应该写进系统的运行日志，而不要在控制终端撒谎那个显示
+	//-k表示安装过程时将MOD_AUTOCLEAN标志位设成0
 	int ret;
 
 	ret = exec_usermodehelper(modprobe_path, argv, envp);
@@ -169,7 +172,7 @@ static int exec_modprobe(void * module_name)
  *	If module auto-loading support is disabled then this function
  *	becomes a no-operation.
  */
- 
+ //主动请求安装模块
 int request_module(const char * module_name)
 {
 	pid_t pid;
@@ -177,11 +180,11 @@ int request_module(const char * module_name)
 	sigset_t tmpsig;
 	int i;
 	static atomic_t kmod_concurrent = ATOMIC_INIT(0);
-#define MAX_KMOD_CONCURRENT 50	/* Completely arbitrary value - KAO */
+#define MAX_KMOD_CONCURRENT 50	/* Completely arbitrary value - KAO */	//欠套的深度
 	static int kmod_loop_msg;
 
 	/* Don't allow request_module() before the root fs is mounted!  */
-	if ( ! current->fs->root ) {
+	if ( ! current->fs->root ) {		//首先检查文件系统的根设备有没有安装
 		printk(KERN_ERR "request_module[%s]: Root fs not mounted\n",
 			module_name);
 		return -EPERM;
@@ -208,7 +211,7 @@ int request_module(const char * module_name)
 		return -ENOMEM;
 	}
 
-	pid = kernel_thread(exec_modprobe, (void*) module_name, 0);
+	pid = kernel_thread(exec_modprobe, (void*) module_name, 0);	//内核线程
 	if (pid < 0) {
 		printk(KERN_ERR "request_module[%s]: fork failed, errno %d\n", module_name, -pid);
 		atomic_dec(&kmod_concurrent);
@@ -218,11 +221,11 @@ int request_module(const char * module_name)
 	/* Block everything but SIGKILL/SIGSTOP */
 	spin_lock_irq(&current->sigmask_lock);
 	tmpsig = current->blocked;
-	siginitsetinv(&current->blocked, sigmask(SIGKILL) | sigmask(SIGSTOP));
+	siginitsetinv(&current->blocked, sigmask(SIGKILL) | sigmask(SIGSTOP));	//屏蔽初SIGKILL，SIGSTOP之外的所有信号
 	recalc_sigpending(current);
 	spin_unlock_irq(&current->sigmask_lock);
 
-	waitpid_result = waitpid(pid, NULL, __WCLONE);
+	waitpid_result = waitpid(pid, NULL, __WCLONE);		//使当前进程进入睡眠
 	atomic_dec(&kmod_concurrent);
 
 	/* Allow signals again.. */
@@ -259,7 +262,7 @@ int request_module(const char * module_name)
 */
 char hotplug_path[256] = "/sbin/hotplug";
 
-EXPORT_SYMBOL(hotplug_path);
+EXPORT_SYMBOL(hotplug_path);	//这些函数或变量，是可以通过/sbin/modprobe访问的
 
 #endif /* CONFIG_HOTPLUG */
 

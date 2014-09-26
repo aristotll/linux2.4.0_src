@@ -329,6 +329,8 @@ const struct module_symbol __ksymtab_##sym 		\
 __attribute__((section("__ksymtab"))) =			\
 { (unsigned long)&sym, __kstrtab_##sym }
 
+
+//符号导出
 #if defined(MODVERSIONS) || !defined(CONFIG_MODVERSIONS)
 #define EXPORT_SYMBOL(var)  __EXPORT_SYMBOL(var, __MODULE_STRING(var))
 #else
@@ -338,7 +340,7 @@ __attribute__((section("__ksymtab"))) =			\
 #define EXPORT_SYMBOL_NOVERS(var)  __EXPORT_SYMBOL(var, __MODULE_STRING(var))
 
 #endif /* __GENKSYMS__ */
-
+//register_chrdev
 #ifdef MODULE
 /* Force a module to export no symbols.  */
 #define EXPORT_NO_SYMBOLS  __asm__(".section __ksymtab\n.previous")

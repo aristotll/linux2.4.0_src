@@ -605,7 +605,7 @@ sys_delete_module(const char *name_user)
 		return -EPERM;
 
 	lock_kernel();
-	if (name_user) {
+	if (name_user) {			 //非0，表示清除一个特定的模块，否则是清理仓库
 		if ((error = get_mod_name(name_user, &name)) < 0)
 			goto out;
 		if (error == 0) {
@@ -614,7 +614,7 @@ sys_delete_module(const char *name_user)
 			goto out;
 		}
 		error = -ENOENT;
-		if ((mod = find_module(name)) == NULL) {
+		if ((mod = find_module(name)) == NULL) {	//先找到module
 			put_mod_name(name);
 			goto out;
 		}
@@ -624,7 +624,7 @@ sys_delete_module(const char *name_user)
 			goto out;
 
 		spin_lock(&unload_lock);
-		if (!__MOD_IN_USE(mod)) {
+		if (!__MOD_IN_USE(mod)) {					//看是否在使用
 			mod->flags |= MOD_DELETED;
 			spin_unlock(&unload_lock);
 			free_module(mod, 0);
@@ -637,16 +637,17 @@ sys_delete_module(const char *name_user)
 
 	/* Do automatic reaping */
 restart:
+	//清理
 	something_changed = 0;
 	for (mod = module_list; mod != &kernel_module; mod = next) {
 		next = mod->next;
 		spin_lock(&unload_lock);
-		if (mod->refs == NULL
-		    && (mod->flags & MOD_AUTOCLEAN)
-		    && (mod->flags & MOD_RUNNING)
-		    && !(mod->flags & MOD_DELETED)
+		if (mod->refs == NULL		//不在有任何模块依赖它了
+		    && (mod->flags & MOD_AUTOCLEAN)		//自动删除
+		    && (mod->flags & MOD_RUNNING)		//已经安装完毕，但是尚未删除
+		    && !(mod->flags & MOD_DELETED)		
 		    && (mod->flags & MOD_USED_ONCE)
-		    && !__MOD_IN_USE(mod)) {
+		    && !__MOD_IN_USE(mod)) {			//模块已经不再使用了
 			if ((mod->flags & MOD_VISITED)
 			    && !(mod->flags & MOD_JUST_FREED)) {
 				spin_unlock(&unload_lock);
@@ -670,6 +671,8 @@ out:
 	unlock_kernel();
 	return error;
 }
+
+//request_module
 
 /* Query various bits about modules.  */
 
@@ -1038,7 +1041,7 @@ free_module(struct module *mod, int tag_freed)
 	if (mod->flags & MOD_RUNNING)
 	{
 		if(mod->cleanup)
-			mod->cleanup();
+			mod->cleanup();			//首先调用cleanup函数
 		mod->flags &= ~MOD_RUNNING;
 	}
 

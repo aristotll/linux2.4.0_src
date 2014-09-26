@@ -95,13 +95,14 @@ static struct file_operations * get_chrfops(unsigned int major, unsigned int min
 	return ret;
 }
 
+//注册字符设备
 int register_chrdev(unsigned int major, const char * name, struct file_operations *fops)
 {
 	if (major == 0) {
 		write_lock(&chrdevs_lock);
 		for (major = MAX_CHRDEV-1; major > 0; major--) {
-			if (chrdevs[major].fops == NULL) {
-				chrdevs[major].name = name;
+			if (chrdevs[major].fops == NULL) {		
+				chrdevs[major].name = name;	//登记
 				chrdevs[major].fops = fops;
 				write_unlock(&chrdevs_lock);
 				return major;
