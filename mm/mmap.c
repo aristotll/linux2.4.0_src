@@ -119,6 +119,7 @@ void unlock_vma_mappings(struct vm_area_struct *vma)
  */
 asmlinkage unsigned long sys_brk(unsigned long brk)
 {
+	//brk表示边界，边界不能低于代码段的终点，并且必须与页面大小对齐
 	unsigned long rlim, retval;
 	unsigned long newbrk, oldbrk;
 	struct mm_struct *mm = current->mm;
@@ -133,7 +134,7 @@ asmlinkage unsigned long sys_brk(unsigned long brk)
 		goto set_brk;
 
 	/* Always allow shrinking brk. */
-	if (brk <= mm->brk) {
+	if (brk <= mm->brk) {	//当低于老边界的时候，说明是释放空间，通过do_munmap解除一部分映射区间的映射	
 		if (!do_munmap(mm, newbrk, oldbrk-newbrk))
 			goto set_brk;
 		goto out;
@@ -145,11 +146,11 @@ asmlinkage unsigned long sys_brk(unsigned long brk)
 		goto out;
 
 	/* Check against existing mmap mappings. */
-	if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE))
+	if (find_vma_intersection(mm, oldbrk, newbrk+PAGE_SIZE))		//不为NULL，说明已经包含了
 		goto out;
 
 	/* Check if we have enough memory.. */
-	if (!vm_enough_memory((newbrk-oldbrk) >> PAGE_SHIFT))
+	if (!vm_enough_memory((newbrk-oldbrk) >> PAGE_SHIFT))			//是否有足够的内存页面
 		goto out;
 
 	/* Ok, looks good - let it rip. */
@@ -666,6 +667,7 @@ no_mmaps:
  * work.  This now handles partial unmappings.
  * Jeremy Fitzhardine <jeremy@sw.oz.au>
  */
+//解除映射
 int do_munmap(struct mm_struct *mm, unsigned long addr, size_t len)
 {
 	struct vm_area_struct *mpnt, *prev, **npp, *free, *extra;
@@ -681,16 +683,16 @@ int do_munmap(struct mm_struct *mm, unsigned long addr, size_t len)
 	 * every area affected in some way (by any overlap) is put
 	 * on the list.  If nothing is put on, nothing is affected.
 	 */
-	mpnt = find_vma_prev(mm, addr, &prev);
-	if (!mpnt)
-		return 0;
+	mpnt = find_vma_prev(mm, addr, &prev);	//找到前一个虚存空间
+	if (!mpnt)			//表示解除映射的区间，没有映射
+		return 0;		
 	/* we have  addr < mpnt->vm_end  */
 
-	if (mpnt->vm_start >= addr+len)
+	if (mpnt->vm_start >= addr+len)	//没有映射
 		return 0;
 
 	/* If we'll make "hole", check the vm areas limit */
-	if ((mpnt->vm_start < addr && mpnt->vm_end > addr+len)
+	if ((mpnt->vm_start < addr && mpnt->vm_end > addr+len)	//否则就有一个空洞
 	    && mm->map_count >= MAX_MAP_COUNT)
 		return -ENOMEM;
 
@@ -698,7 +700,7 @@ int do_munmap(struct mm_struct *mm, unsigned long addr, size_t len)
 	 * We may need one additional vma to fix up the mappings ... 
 	 * and this is the last chance for an easy error exit.
 	 */
-	extra = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+	extra = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);	
 	if (!extra)
 		return -ENOMEM;
 
@@ -741,13 +743,13 @@ int do_munmap(struct mm_struct *mm, unsigned long addr, size_t len)
 		mm->map_count--;
 
 		flush_cache_range(mm, st, end);
-		zap_page_range(mm, st, size);
+		zap_page_range(mm, st, size);		//解除若干连续页面的映射
 		flush_tlb_range(mm, st, end);
 
 		/*
 		 * Fix the mapping, and free the old area if it wasn't reused.
 		 */
-		extra = unmap_fixup(mm, mpnt, st, size, extra);
+		extra = unmap_fixup(mm, mpnt, st, size, extra);		//修复一个区间
 		if (file)
 			atomic_inc(&file->f_dentry->d_inode->i_writecount);
 	}
@@ -756,7 +758,7 @@ int do_munmap(struct mm_struct *mm, unsigned long addr, size_t len)
 	if (extra)
 		kmem_cache_free(vm_area_cachep, extra);
 
-	free_pgtables(mm, prev, addr, addr+len);
+	free_pgtables(mm, prev, addr, addr+len);	//页面表所占的空间
 
 	return 0;
 }
@@ -800,7 +802,7 @@ unsigned long do_brk(unsigned long addr, unsigned long len)
 	/*
 	 * Clear old maps.  this also does some error checking for us
 	 */
-	retval = do_munmap(mm, addr, len);
+	retval = do_munmap(mm, addr, len);		//清除老的
 	if (retval != 0)
 		return retval;
 
@@ -855,7 +857,7 @@ out:
 	mm->total_vm += len >> PAGE_SHIFT;
 	if (flags & VM_LOCKED) {
 		mm->locked_vm += len >> PAGE_SHIFT;
-		make_pages_present(addr, addr + len);
+		make_pages_present(addr, addr + len);		//建立映射，缺页处理
 	}
 	return addr;
 }

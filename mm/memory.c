@@ -348,6 +348,7 @@ static inline int zap_pmd_range(struct mm_struct *mm, pgd_t * dir, unsigned long
 /*
  * remove user pages in a given range.
  */
+//解除页面的映射
 void zap_page_range(struct mm_struct *mm, unsigned long address, unsigned long size)
 {
 	pgd_t * dir;
@@ -367,7 +368,7 @@ void zap_page_range(struct mm_struct *mm, unsigned long address, unsigned long s
 		BUG();
 	spin_lock(&mm->page_table_lock);
 	do {
-		freed += zap_pmd_range(mm, dir, address, end - address);
+		freed += zap_pmd_range(mm, dir, address, end - address);	//处理第二层的中间目录
 		address = (address + PGDIR_SIZE) & PGDIR_MASK;
 		dir++;
 	} while (address && (address < end));
