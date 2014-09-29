@@ -428,6 +428,9 @@ extern unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 	unsigned long len, unsigned long prot,
 	unsigned long flag, unsigned long pgoff);
 
+//将已打开文件映射到当前进程的用户空间
+//可用来将二进制文件映射到当前进程的用户空间
+//也可以用来作为进程间通信的共享内存区
 static inline unsigned long do_mmap(struct file *file, unsigned long addr,
 	unsigned long len, unsigned long prot,
 	unsigned long flag, unsigned long offset)

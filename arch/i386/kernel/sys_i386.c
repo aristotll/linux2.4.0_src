@@ -43,6 +43,7 @@ asmlinkage int sys_pipe(unsigned long * fildes)
 }
 
 /* common code for old and new mmaps */
+//do_mmap
 static inline long do_mmap2(
 	unsigned long addr, unsigned long len,
 	unsigned long prot, unsigned long flags,

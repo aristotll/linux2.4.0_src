@@ -1708,6 +1708,7 @@ static struct vm_operations_struct file_private_mmap = {
 
 /* This is used for a general mmap of a disk file */
 
+//用于文件映射
 int generic_file_mmap(struct file * file, struct vm_area_struct * vma)
 {
 	struct vm_operations_struct * ops;
@@ -1715,16 +1716,16 @@ int generic_file_mmap(struct file * file, struct vm_area_struct * vma)
 
 	ops = &file_private_mmap;
 	if ((vma->vm_flags & VM_SHARED) && (vma->vm_flags & VM_MAYWRITE)) {
-		if (!inode->i_mapping->a_ops->writepage)
+		if (!inode->i_mapping->a_ops->writepage)	//写访问
 			return -EINVAL;
 		ops = &file_shared_mmap;
 	}
 	if (!inode->i_sb || !S_ISREG(inode->i_mode))
 		return -EACCES;
-	if (!inode->i_mapping->a_ops->readpage)
+	if (!inode->i_mapping->a_ops->readpage)			//读访问
 		return -ENOEXEC;
 	UPDATE_ATIME(inode);
-	vma->vm_ops = ops;
+	vma->vm_ops = ops;		//设置相应的ops，共享的还是专用的
 	return 0;
 }
 

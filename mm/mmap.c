@@ -255,7 +255,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr, unsigned lon
 		if (addr & ~PAGE_MASK)
 			return -EINVAL;
 	} else {
-		addr = get_unmapped_area(addr, len);
+		addr = get_unmapped_area(addr, len);	//在当前进程的用户空间分配一个起始地址
 		if (!addr)
 			return -ENOMEM;
 	}
@@ -273,11 +273,11 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr, unsigned lon
 	vma->vm_end = addr + len;
 	vma->vm_flags = vm_flags(prot,flags) | mm->def_flags;
 
-	if (file) {
+	if (file) {		//大于0的时候
 		VM_ClearReadHint(vma);
 		vma->vm_raend = 0;
 
-		if (file->f_mode & FMODE_READ)
+		if (file->f_mode & FMODE_READ)		//文件的权限
 			vma->vm_flags |= VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC;
 		if (flags & MAP_SHARED) {
 			vma->vm_flags |= VM_SHARED | VM_MAYSHARE;
@@ -294,7 +294,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr, unsigned lon
 			if (!(file->f_mode & FMODE_WRITE))
 				vma->vm_flags &= ~(VM_MAYWRITE | VM_SHARED);
 		}
-	} else {
+	} else {		//为0的话，仅仅是创建虚存区间
 		vma->vm_flags |= VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC;
 		if (flags & MAP_SHARED)
 			vma->vm_flags |= VM_SHARED | VM_MAYSHARE;
@@ -307,7 +307,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr, unsigned lon
 
 	/* Clear old maps */
 	error = -ENOMEM;
-	if (do_munmap(mm, addr, len))
+	if (do_munmap(mm, addr, len))	//看此区间
 		goto free_vma;
 
 	/* Check against address space limit. */
@@ -330,7 +330,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr, unsigned lon
 		}
 		vma->vm_file = file;
 		get_file(file);
-		error = file->f_op->mmap(file, vma);
+		error = file->f_op->mmap(file, vma);		//来建立映射
 		if (error)
 			goto unmap_and_free_vma;
 	} else if (flags & MAP_SHARED) {
@@ -338,7 +338,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr, unsigned lon
 		if (error)
 			goto free_vma;
 	}
-
+//generic_file_mmap
 	/* Can addr have changed??
 	 *
 	 * Answer: Yes, several device drivers can do it in their
@@ -354,7 +354,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr, unsigned lon
 	mm->total_vm += len >> PAGE_SHIFT;
 	if (flags & VM_LOCKED) {
 		mm->locked_vm += len >> PAGE_SHIFT;
-		make_pages_present(addr, addr + len);
+		make_pages_present(addr, addr + len);	//建立起页面的映射
 	}
 	return addr;
 
@@ -377,6 +377,7 @@ free_vma:
  * Return value 0 means ENOMEM.
  */
 #ifndef HAVE_ARCH_UNMAPPED_AREA
+//在当前进程的用户空间分配一个起始地址
 unsigned long get_unmapped_area(unsigned long addr, unsigned long len)
 {
 	struct vm_area_struct * vmm;
@@ -387,6 +388,7 @@ unsigned long get_unmapped_area(unsigned long addr, unsigned long len)
 		addr = TASK_UNMAPPED_BASE;
 	addr = PAGE_ALIGN(addr);
 
+	//寻找
 	for (vmm = find_vma(current->mm, addr); ; vmm = vmm->vm_next) {
 		/* At this point:  (!vmm || addr < vmm->vm_end). */
 		if (TASK_SIZE - len < addr)
