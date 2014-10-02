@@ -15,10 +15,10 @@ struct sigqueue {
 };
 
 struct sigpending {
-	struct sigqueue *head, **tail;
-	sigset_t signal;
+	struct sigqueue *head, **tail;	//信号队列
+	sigset_t signal;		//信号位图
 };
-
+//task_struct
 /*
  * Define some primitives to manipulate sigset_t.
  */

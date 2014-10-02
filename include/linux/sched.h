@@ -241,6 +241,7 @@ struct mm_struct {  //是整个用户空间的抽象
 	mmlist:		LIST_HEAD_INIT(name.mmlist),	\
 }
 
+//信号向量表
 struct signal_struct {
 	atomic_t		count;
 	struct k_sigaction	action[_NSIG];  //表示对各种信号的的反应和处理
@@ -398,11 +399,11 @@ struct task_struct {
 	spinlock_t sigmask_lock;	/* Protects signal and blocked */
 	struct signal_struct *sig;
 
-	sigset_t blocked;
+	sigset_t blocked;			//信号量
 	struct sigpending pending;
 
-	unsigned long sas_ss_sp;
-	size_t sas_ss_size;
+	unsigned long sas_ss_sp;	//用于记录当前进程在用户空间执行信号处理程序时的堆栈位置
+	size_t sas_ss_size;			//堆栈的大小
 	int (*notifier)(void *priv);
 	void *notifier_data;
 	sigset_t *notifier_mask;
@@ -413,7 +414,7 @@ struct task_struct {
 /* Protection of (de-)allocation: mm, files, fs, tty */
 	spinlock_t alloc_lock;
 };
-
+//sys_signal
 /*
  * Per process flags
  */

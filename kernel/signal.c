@@ -274,11 +274,11 @@ static int rm_from_queue(int sig, struct sigpending *s)
 	if (!sigismember(&s->signal, sig))
 		return 0;
 
-	sigdelset(&s->signal, sig);
+	sigdelset(&s->signal, sig);	//设置
 
-	pp = &s->head;
+	pp = &s->head;		//取得队列
 
-	while ((q = *pp) != NULL) {
+	while ((q = *pp) != NULL) {	//对于实时信号，还要进入队列中
 		if (q->info.si_signo == sig) {
 			if ((*pp = q->next) == NULL)
 				s->tail = pp;
@@ -313,7 +313,7 @@ int bad_signal(int sig, struct siginfo *info, struct task_struct *t)
 	    && (current->uid ^ t->suid) && (current->uid ^ t->uid)
 	    && !capable(CAP_KILL);
 }
-
+//SI_USER
 /*
  * Signal type:
  *    < 0 : global action (kill - spread to all non-blocked threads)
@@ -333,7 +333,7 @@ static int signal_type(int sig, struct signal_struct *signals)
 
 	/* "Ignore" handler.. Illogical, but that has an implicit handler for SIGCHLD */
 	if (handler == 1)
-		return sig == SIGCHLD;
+		return sig == SIGCHLD;	//除外
 
 	/* Default handler. Normally lethal, but.. */
 	switch (sig) {
@@ -365,7 +365,7 @@ static int signal_type(int sig, struct signal_struct *signals)
 static int ignored_signal(int sig, struct task_struct *t)
 {
 	/* Don't ignore traced or blocked signals */
-	if ((t->ptrace & PT_PTRACED) || sigismember(&t->blocked, sig))
+	if ((t->ptrace & PT_PTRACED) || sigismember(&t->blocked, sig))	//并不是跟踪模式下
 		return 0;
 
 	return signal_type(sig, t->sig) == 0;
@@ -383,7 +383,7 @@ static void handle_stop_signal(int sig, struct task_struct *t)
 	case SIGKILL: case SIGCONT:
 		/* Wake up the process if stopped.  */
 		if (t->state == TASK_STOPPED)
-			wake_up_process(t);
+			wake_up_process(t);			//唤醒
 		t->exit_code = 0;
 		rm_sig_from_queue(SIGSTOP, t);
 		rm_sig_from_queue(SIGTSTP, t);
@@ -412,7 +412,7 @@ static int send_signal(int sig, struct siginfo *info, struct sigpending *signals
 	   pass on the info struct.  */
 
 	if (atomic_read(&nr_queued_signals) < max_queued_signals) {
-		q = kmem_cache_alloc(sigqueue_cachep, GFP_ATOMIC);
+		q = kmem_cache_alloc(sigqueue_cachep, GFP_ATOMIC);	//在堆上的内存	
 	}
 
 	if (q) {
@@ -421,22 +421,23 @@ static int send_signal(int sig, struct siginfo *info, struct sigpending *signals
 		*signals->tail = q;
 		signals->tail = &q->next;
 		switch ((unsigned long) info) {
+			//0,1表示来自内核
 			case 0:
 				q->info.si_signo = sig;
 				q->info.si_errno = 0;
-				q->info.si_code = SI_USER;
+				q->info.si_code = SI_USER;	//用户的
 				q->info.si_pid = current->pid;
 				q->info.si_uid = current->uid;
 				break;
 			case 1:
 				q->info.si_signo = sig;
 				q->info.si_errno = 0;
-				q->info.si_code = SI_KERNEL;
+				q->info.si_code = SI_KERNEL;	//内核
 				q->info.si_pid = 0;
 				q->info.si_uid = 0;
 				break;
 			default:
-				copy_siginfo(&q->info, info);
+				copy_siginfo(&q->info, info);	//拷贝
 				break;
 		}
 	} else if (sig >= SIGRTMIN && info && (unsigned long)info != 1
@@ -448,7 +449,7 @@ static int send_signal(int sig, struct siginfo *info, struct sigpending *signals
 		return -EAGAIN;
 	}
 
-	sigaddset(&signals->signal, sig);
+	sigaddset(&signals->signal, sig);	//还要将接受位图设置成1
 	return 0;
 }
 
@@ -489,13 +490,13 @@ static inline void signal_wake_up(struct task_struct *t)
 	spin_unlock(&runqueue_lock);
 #endif /* CONFIG_SMP */
 }
-
+//force_sig
 static int deliver_signal(int sig, struct siginfo *info, struct task_struct *t)
 {
-	int retval = send_signal(sig, info, &t->pending);
+	int retval = send_signal(sig, info, &t->pending);	//放入队列中
 
-	if (!retval && !sigismember(&t->blocked, sig))
-		signal_wake_up(t);
+	if (!retval && !sigismember(&t->blocked, sig))	//看是否屏蔽了该信号
+		signal_wake_up(t);		//没有也就唤醒
 
 	return retval;
 }
@@ -516,7 +517,7 @@ printk("SIG queue (%s:%d): %d ", t->comm, t->pid, sig);
 		goto out_nolock;
 	/* The somewhat baroque permissions check... */
 	ret = -EPERM;
-	if (bad_signal(sig, info, t))
+	if (bad_signal(sig, info, t))	//检查
 		goto out_nolock;
 
 	/* The null signal is a permissions and process existance probe.
@@ -527,18 +528,18 @@ printk("SIG queue (%s:%d): %d ", t->comm, t->pid, sig);
 
 	spin_lock_irqsave(&t->sigmask_lock, flags);
 	handle_stop_signal(sig, t);
-
+	
 	/* Optimize away the signal, if it's a signal that can be
 	   handled immediately (ie non-blocked and untraced) and
 	   that is ignored (either explicitly or by default).  */
 
-	if (ignored_signal(sig, t))
+	if (ignored_signal(sig, t))		//优化
 		goto out;
 
 	/* Support queueing exactly one non-rt signal, so that we
 	   can get more detailed information about the cause of
 	   the signal. */
-	if (sig < SIGRTMIN && sigismember(&t->pending.signal, sig))
+	if (sig < SIGRTMIN && sigismember(&t->pending.signal, sig))	//接收位图中的标志为0，老的信号量机制，已投递就到out
 		goto out;
 
 	ret = deliver_signal(sig, info, t);
@@ -578,7 +579,7 @@ force_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 
 	return send_sig_info(sig, info, t);
 }
-
+//do_signal
 /*
  * kill_pg_info() sends a signal to a process group: this is what the tty
  * control characters do (^C, ^Z etc)
@@ -593,7 +594,7 @@ kill_pg_info(int sig, struct siginfo *info, pid_t pgrp)
 
 		retval = -ESRCH;
 		read_lock(&tasklist_lock);
-		for_each_task(p) {
+		for_each_task(p) {	//从全局队列中找到同一进程组中所有进程的pgrp
 			if (p->pgrp == pgrp) {
 				int err = send_sig_info(sig, info, p);
 				if (retval)
@@ -658,8 +659,8 @@ kill_proc_info(int sig, struct siginfo *info, pid_t pid)
 static int kill_something_info(int sig, struct siginfo *info, int pid)
 {
 	if (!pid) {
-		return kill_pg_info(sig, info, current->pgrp);
-	} else if (pid == -1) {
+		return kill_pg_info(sig, info, current->pgrp);	//整个进程组，pid为0的时候
+	} else if (pid == -1) {	
 		int retval = 0, count = 0;
 		struct task_struct * p;
 
@@ -677,7 +678,7 @@ static int kill_something_info(int sig, struct siginfo *info, int pid)
 	} else if (pid < 0) {
 		return kill_pg_info(sig, info, -pid);
 	} else {
-		return kill_proc_info(sig, info, pid);
+		return kill_proc_info(sig, info, pid);	//一个特定的进程
 	}
 }
 
@@ -691,6 +692,7 @@ send_sig(int sig, struct task_struct *p, int priv)
 	return send_sig_info(sig, (void*)(long)(priv != 0), p);
 }
 
+//内核发送信号
 void
 force_sig(int sig, struct task_struct *p)
 {
@@ -979,12 +981,13 @@ sys_rt_sigtimedwait(const sigset_t *uthese, siginfo_t *uinfo,
 asmlinkage long
 sys_kill(int pid, int sig)
 {
+	//准备一个siginfo
 	struct siginfo info;
 
 	info.si_signo = sig;
 	info.si_errno = 0;
 	info.si_code = SI_USER;
-	info.si_pid = current->pid;
+	info.si_pid = current->pid;	//设置相应的值
 	info.si_uid = current->uid;
 
 	return kill_something_info(sig, &info, pid);
@@ -1014,19 +1017,20 @@ do_sigaction(int sig, const struct k_sigaction *act, struct k_sigaction *oact)
 	struct k_sigaction *k;
 
 	if (sig < 1 || sig > _NSIG ||
-	    (act && (sig == SIGKILL || sig == SIGSTOP)))
+	    (act && (sig == SIGKILL || sig == SIGSTOP)))	//对SIGKILL，SIGSTOP的响应是不允许改变的
 		return -EINVAL;
 
-	k = &current->sig->action[sig-1];
+	k = &current->sig->action[sig-1];	//编号从0开始
 
 	spin_lock(&current->sig->siglock);
-
-	if (oact)
+	
+	if (oact)		//旧的
 		*oact = *k;
 
-	if (act) {
+	if (act) {		//新的
 		*k = *act;
-		sigdelsetmask(&k->sa.sa_mask, sigmask(SIGKILL) | sigmask(SIGSTOP));
+		sigdelsetmask(&k->sa.sa_mask, sigmask(SIGKILL) | sigmask(SIGSTOP));	
+		//在屏蔽位图k->sa.sa_mask中将这两个信号对应的屏蔽位清除
 
 		/*
 		 * POSIX 3.3.1.3:
@@ -1044,15 +1048,16 @@ do_sigaction(int sig, const struct k_sigaction *act, struct k_sigaction *oact)
 		 * reaping, while SIG_DFL is explicitly said by POSIX to force
 		 * the signal to be ignored.
 		 */
-
+		
+		//k是新的设置信号向量
 		if (k->sa.sa_handler == SIG_IGN
 		    || (k->sa.sa_handler == SIG_DFL
-			&& (sig == SIGCONT ||
+			&& (sig == SIGCONT ||	//涉及的信号为这几个的时候，要丢弃
 			    sig == SIGCHLD ||
 			    sig == SIGWINCH))) {
 			spin_lock_irq(&current->sigmask_lock);
-			if (rm_sig_from_queue(sig, current))
-				recalc_sigpending(current);
+			if (rm_sig_from_queue(sig, current))	//要将这些信号丢掉
+				recalc_sigpending(current);			//信号在等待处理的总标志sigpending也得要重新计算
 			spin_unlock_irq(&current->sigmask_lock);
 		}
 	}
@@ -1060,7 +1065,7 @@ do_sigaction(int sig, const struct k_sigaction *act, struct k_sigaction *oact)
 	spin_unlock(&current->sig->siglock);
 	return 0;
 }
-
+//sys_kill
 int 
 do_sigaltstack (const stack_t *uss, stack_t *uoss, unsigned long sp)
 {
@@ -1251,10 +1256,12 @@ sys_signal(int sig, __sighandler_t handler)
 	int ret;
 
 	new_sa.sa.sa_handler = handler;
-	new_sa.sa.sa_flags = SA_ONESHOT | SA_NOMASK;
+	new_sa.sa.sa_flags = SA_ONESHOT | SA_NOMASK;	//一次性的，SA_NOMASK则表示执行信号程序时不适用任何信号屏蔽
 
 	ret = do_sigaction(sig, &new_sa, &old_sa);
 
 	return ret ? ret : (unsigned long)old_sa.sa.sa_handler;
 }
+
+//sys_sigaction
 #endif /* !alpha && !__ia64__ && !defined(__mips__) */

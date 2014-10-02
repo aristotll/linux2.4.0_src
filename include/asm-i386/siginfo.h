@@ -13,6 +13,7 @@ typedef union sigval {
 #define SI_MAX_SIZE	128
 #define SI_PAD_SIZE	((SI_MAX_SIZE/sizeof(int)) - 3)
 
+//有关的数据
 typedef struct siginfo {
 	int si_signo;
 	int si_errno;
@@ -95,12 +96,12 @@ typedef struct siginfo {
 #define __SI_RT		0
 #define __SI_CODE(T,N)	(N)
 #endif
-
+//sigpending
 /*
  * si_code values
  * Digital reserves positive values for kernel-generated signals.
  */
-#define SI_USER		0		/* sent by kill, sigsend, raise */
+#define SI_USER		0		/* sent by kill, sigsend, raise */	//用户
 #define SI_KERNEL	0x80		/* sent by the kernel from somewhere */
 #define SI_QUEUE	-1		/* sent by sigqueue */
 #define SI_TIMER __SI_CODE(__SI_TIMER,-2) /* sent by timer expiration */

@@ -126,6 +126,7 @@ sys_sigaction(int sig, const struct old_sigaction *act,
 	struct k_sigaction new_ka, old_ka;
 	int ret;
 
+	//逐个拷贝，因为次序的问题
 	if (act) {
 		old_sigset_t mask;
 		if (verify_area(VERIFY_READ, act, sizeof(*act)) ||
@@ -562,7 +563,7 @@ handle_signal(unsigned long sig, struct k_sigaction *ka,
 	if (ka->sa.sa_flags & SA_SIGINFO)
 		setup_rt_frame(sig, ka, info, oldset, regs);
 	else
-		setup_frame(sig, ka, oldset, regs);
+		setup_frame(sig, ka, oldset, regs);		//装入栈桢
 
 	if (ka->sa.sa_flags & SA_ONESHOT)
 		ka->sa.sa_handler = SIG_DFL;
@@ -592,7 +593,7 @@ int do_signal(struct pt_regs *regs, sigset_t *oldset)
 	 * kernel mode. Just return without doing anything
 	 * if so.
 	 */
-	if ((regs->xcs & 3) != 3)
+	if ((regs->xcs & 3) != 3)	//不等于3的话，说明还不是在返回到用户空间的前夕
 		return 1;
 
 	if (!oldset)
@@ -602,7 +603,7 @@ int do_signal(struct pt_regs *regs, sigset_t *oldset)
 		unsigned long signr;
 
 		spin_lock_irq(&current->sigmask_lock);
-		signr = dequeue_signal(&current->blocked, &info);
+		signr = dequeue_signal(&current->blocked, &info);	//取出一个未加屏蔽的信号加以处理
 		spin_unlock_irq(&current->sigmask_lock);
 
 		if (!signr)
@@ -640,12 +641,12 @@ int do_signal(struct pt_regs *regs, sigset_t *oldset)
 			}
 		}
 
-		ka = &current->sig->action[signr-1];
+		ka = &current->sig->action[signr-1];	//信号处理程序
 		if (ka->sa.sa_handler == SIG_IGN) {
-			if (signr != SIGCHLD)
+			if (signr != SIGCHLD)	//除外
 				continue;
 			/* Check for SIGCHLD: it's special.  */
-			while (sys_wait4(-1, NULL, WNOHANG, NULL) > 0)
+			while (sys_wait4(-1, NULL, WNOHANG, NULL) > 0)	//检查其所有的子进程
 				/* nothing */;
 			continue;
 		}
@@ -654,7 +655,7 @@ int do_signal(struct pt_regs *regs, sigset_t *oldset)
 			int exit_code = signr;
 
 			/* Init gets no signals it doesn't want.  */
-			if (current->pid == 1)
+			if (current->pid == 1)	//init跳过
 				continue;
 
 			switch (signr) {
@@ -698,12 +699,12 @@ int do_signal(struct pt_regs *regs, sigset_t *oldset)
 		__asm__("movl %0,%%db7"	: : "r" (current->thread.debugreg[7]));
 
 		/* Whee!  Actually deliver the signal.  */
-		handle_signal(signr, ka, &info, oldset, regs);
+		handle_signal(signr, ka, &info, oldset, regs);	//指向用户空间的某个程序
 		return 1;
 	}
 
 	/* Did we come from a system call? */
-	if (regs->orig_eax >= 0) {
+	if (regs->orig_eax >= 0) {		//重新执行一次系统调用
 		/* Restart the system call - no handlers present */
 		if (regs->eax == -ERESTARTNOHAND ||
 		    regs->eax == -ERESTARTSYS ||

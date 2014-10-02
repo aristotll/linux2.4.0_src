@@ -155,7 +155,7 @@ struct k_sigaction {
 
 struct sigaction {
 	union {
-	  __sighandler_t _sa_handler;
+	  __sighandler_t _sa_handler;		//函数指针，两个只是参数不同
 	  void (*_sa_sigaction)(int, struct siginfo *, void *);
 	} _u;
 	sigset_t sa_mask;
