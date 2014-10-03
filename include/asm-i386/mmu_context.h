@@ -14,6 +14,7 @@
 
 #ifdef CONFIG_SMP
 
+//在__exit_mm或schedule表示的内核线程，并不需要更新tlb
 static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk, unsigned cpu)
 {
 	if(cpu_tlbstate[cpu].state == TLBSTATE_OK)

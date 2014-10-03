@@ -223,7 +223,7 @@ static spinlock_t tlbstate_lock = SPIN_LOCK_UNLOCKED;
 static void inline leave_mm (unsigned long cpu)
 {
 	if (cpu_tlbstate[cpu].state == TLBSTATE_OK)
-		BUG();
+		BUG();		//有bug
 	clear_bit(cpu, &cpu_tlbstate[cpu].active_mm->cpu_vm_mask);
 }
 
@@ -287,7 +287,7 @@ asmlinkage void smp_invalidate_interrupt (void)
 		 *
 		 * BUG();
 		 */
-		 
+	//enter_lazy_tlb
 	if (flush_mm == cpu_tlbstate[cpu].active_mm) {
 		if (cpu_tlbstate[cpu].state == TLBSTATE_OK) {
 			if (flush_va == FLUSH_ALL)
@@ -297,8 +297,8 @@ asmlinkage void smp_invalidate_interrupt (void)
 		} else
 			leave_mm(cpu);
 	}
-	ack_APIC_irq();
-	clear_bit(cpu, &flush_cpumask);
+	ack_APIC_irq();		//发出一个确认
+	clear_bit(cpu, &flush_cpumask);	//清0，使发出中断请求的cpu知道当前cpu已经废弃了tlb的内容
 }
 
 static void flush_tlb_others (unsigned long cpumask, struct mm_struct *mm,
@@ -335,17 +335,17 @@ static void flush_tlb_others (unsigned long cpumask, struct mm_struct *mm,
 	 * We have to send the IPI only to
 	 * CPUs affected.
 	 */
-	send_IPI_mask(cpumask, INVALIDATE_TLB_VECTOR);	//发送中断
+	send_IPI_mask(cpumask, INVALIDATE_TLB_VECTOR);	//发送一个叫INVALIDATE_TLB_VECTOR的中断
 	//smp_invalidate_interrupt
 
-	while (flush_cpumask)
+	while (flush_cpumask)		//等待位图flush_cpumask变成0
 		/* nothing. lockup detection does not belong here */;
 
 	flush_mm = NULL;
 	flush_va = 0;
 	spin_unlock(&tlbstate_lock);
 }
-	
+//smp_invalidate_interrupt
 void flush_tlb_current_task(void)
 {
 	struct mm_struct *mm = current->mm;
@@ -375,10 +375,11 @@ void flush_tlb_page(struct vm_area_struct * vma, unsigned long va)
 	struct mm_struct *mm = vma->vm_mm;
 	//cpu_vm_mask表示哪个cpu在使用这个空间
 	unsigned long cpu_mask = mm->cpu_vm_mask & ~(1 << smp_processor_id());
+	//得到还有哪一个cpu在使用这个空间
 
-	if (current->active_mm == mm) {
+	if (current->active_mm == mm) {	//当前进程也与目标进程使用的mm相同
 		if(current->mm)
-			__flush_tlb_one(va);
+			__flush_tlb_one(va);	//就冲刷
 		 else
 		 	leave_mm(smp_processor_id());
 	}

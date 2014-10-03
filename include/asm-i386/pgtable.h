@@ -40,7 +40,7 @@ extern void paging_init(void);
 									\
 		__asm__ __volatile__(					\
 			"movl %%cr3, %0;  # flush TLB \n"		\
-			"movl %0, %%cr3;              \n"		\
+			"movl %0, %%cr3;              \n"		\\把指向映射目录的指针，cr3重新装入一次\
 			: "=r" (tmpreg)					\
 			:: "memory");					\
 	} while (0)
@@ -85,9 +85,9 @@ extern unsigned long pgkern_mask;
 #define __flush_tlb_one(addr) __flush_tlb()
 #else
 #define __flush_tlb_one(addr) \
-__asm__ __volatile__("invlpg %0": :"m" (*(char *) addr))
+__asm__ __volatile__("invlpg %0": :"m" (*(char *) addr))	//将给定页面的内容废弃
 #endif
-
+//leave_mm
 /*
  * ZERO_PAGE is a global shared page that is always zero: used
  * for zero-mapped memory areas etc..

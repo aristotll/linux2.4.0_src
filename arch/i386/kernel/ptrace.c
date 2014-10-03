@@ -142,32 +142,32 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 
 	lock_kernel();
 	ret = -EPERM;
-	if (request == PTRACE_TRACEME) {
+	if (request == PTRACE_TRACEME) {	//请求
 		/* are we already being traced? */
 		if (current->ptrace & PT_PTRACED)
 			goto out;
 		/* set the ptrace bit in the process flags. */
-		current->ptrace |= PT_PTRACED;
+		current->ptrace |= PT_PTRACED;	//设置当前进程的PT_PTRACED
 		ret = 0;
 		goto out;
 	}
 	ret = -ESRCH;
 	read_lock(&tasklist_lock);
-	child = find_task_by_pid(pid);
+	child = find_task_by_pid(pid);		//根据进程号找到目标进程的task_struct
 	if (child)
-		get_task_struct(child);
+		get_task_struct(child);			//递增使用计数，主要是可能会发生调度，而使得task_struct的所在页面释放掉的可能
 	read_unlock(&tasklist_lock);
 	if (!child)
 		goto out;
 
 	ret = -EPERM;
-	if (pid == 1)		/* you may not mess with init */
+	if (pid == 1)		/* you may not mess with init */	//是不允许跟踪init进程的
 		goto out_tsk;
 
-	if (request == PTRACE_ATTACH) {
-		if (child == current)
+	if (request == PTRACE_ATTACH) {		
+		if (child == current)			//自己不允许跟踪自己
 			goto out_tsk;
-		if ((!child->dumpable ||
+		if ((!child->dumpable ||		//如果不是同一个用户或同一组，那就需要升级到特权用户
 		    (current->uid != child->euid) ||
 		    (current->uid != child->suid) ||
 		    (current->uid != child->uid) ||
@@ -177,24 +177,24 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 	 	    (current->gid != child->gid)) && !capable(CAP_SYS_PTRACE))
 			goto out_tsk;
 		/* the same process cannot be attached many times */
-		if (child->ptrace & PT_PTRACED)
+		if (child->ptrace & PT_PTRACED)			//必须是第一次被跟踪的
 			goto out_tsk;
 		child->ptrace |= PT_PTRACED;
 
 		write_lock_irq(&tasklist_lock);
-		if (child->p_pptr != current) {
+		if (child->p_pptr != current) {	//目标进程必须是当前进程的子进程
 			REMOVE_LINKS(child);
 			child->p_pptr = current;
 			SET_LINKS(child);
 		}
 		write_unlock_irq(&tasklist_lock);
 
-		send_sig(SIGSTOP, child, 1);
+		send_sig(SIGSTOP, child, 1);	//向子进程发送SIGSTOP信号
 		ret = 0;
 		goto out_tsk;
 	}
 	ret = -ESRCH;
-	if (!(child->ptrace & PT_PTRACED))
+	if (!(child->ptrace & PT_PTRACED))	//后续的操作
 		goto out_tsk;
 	if (child->state != TASK_STOPPED) {
 		if (request != PTRACE_KILL)
@@ -204,8 +204,8 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 		goto out_tsk;
 	switch (request) {
 	/* when I and D space are separate, these will need to be fixed. */
-	case PTRACE_PEEKTEXT: /* read word at location addr. */ 
-	case PTRACE_PEEKDATA: {
+	case PTRACE_PEEKTEXT: /* read word at location addr. */		//从子进程的指令空间，读取一个长字
+	case PTRACE_PEEKDATA: {	//从数据空间读取一个长字
 		unsigned long tmp;
 		int copied;
 
@@ -217,6 +217,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 		break;
 	}
 
+	//读取子进程在用户空间运行时，（进入系统空间前夕）的某个寄存器的内容
 	/* read the word at location addr in the USER area. */
 	case PTRACE_PEEKUSR: {
 		unsigned long tmp;
@@ -228,9 +229,9 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 
 		tmp = 0;  /* Default return condition */
 		if(addr < 17*sizeof(long))
-			tmp = getreg(child, addr);
+			tmp = getreg(child, addr);		//读取寄存器的内容
 		if(addr >= (long) &dummy->u_debugreg[0] &&
-		   addr <= (long) &dummy->u_debugreg[7]){
+		   addr <= (long) &dummy->u_debugreg[7]){	//查看addr是否处于相应的量
 			addr -= (long) &dummy->u_debugreg[0];
 			addr = addr >> 2;
 			tmp = child->thread.debugreg[addr];
@@ -241,7 +242,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 
 	/* when I and D space are separate, this will have to be fixed. */
 	case PTRACE_POKETEXT: /* write the word at location addr. */
-	case PTRACE_POKEDATA:
+	case PTRACE_POKEDATA:	//将一个字写到一个位置
 		ret = 0;
 		if (access_process_vm(child, addr, &data, sizeof(data), 1) == sizeof(data))
 			break;
@@ -286,6 +287,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 		  }
 		  break;
 
+	//分别用来事被跟踪的子进程在下一次系统调用时暂停或继续
 	case PTRACE_SYSCALL: /* continue and stop at next (return from) syscall */
 	case PTRACE_CONT: { /* restart after signal. */
 		long tmp;
@@ -311,6 +313,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
  * perhaps it should be put in the status that it wants to 
  * exit.
  */
+	//使子进程推出运行
 	case PTRACE_KILL: {
 		long tmp;
 
@@ -325,6 +328,7 @@ asmlinkage int sys_ptrace(long request, long pid, long addr, long data)
 		break;
 	}
 
+	//单步运行
 	case PTRACE_SINGLESTEP: {  /* set the trap flag. */
 		long tmp;
 
@@ -470,7 +474,7 @@ out:
 	unlock_kernel();
 	return ret;
 }
-
+//flush_tlb_others
 asmlinkage void syscall_trace(void)
 {
 	if ((current->ptrace & (PT_PTRACED|PT_TRACESYS)) !=

@@ -214,10 +214,12 @@ static inline void flush_tlb_range(struct mm_struct * mm, unsigned long start, u
 #define TLBSTATE_OK	1
 #define TLBSTATE_LAZY	2
 
+//全局的tlb_state
 struct tlb_state
 {
 	struct mm_struct *active_mm;
-	int state;
+	int state;			
+	//表示状态，一般是TLBSTATE_OK，正在使用中的页面目录和页面表内容发生变化就要刷新TLB内容
 };
 extern struct tlb_state cpu_tlbstate[NR_CPUS];
 
