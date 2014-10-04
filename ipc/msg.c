@@ -39,11 +39,12 @@ struct msg_receiver {
 	long r_msgtype;
 	long r_maxsize;
 
-	struct msg_msg* volatile r_msg;
+	struct msg_msg* volatile r_msg;	//用于报文交接的
 };
 
 /* one msg_sender for each sleeping sender */
-struct msg_sender {
+//代表当前的发送者
+struct msg_sender {	
 	struct list_head list;
 	struct task_struct* tsk;
 };
@@ -53,11 +54,12 @@ struct msg_msgseg {
 	/* the next part of the message follows immediately */
 };
 /* one msg_msg structure for each message */
+//报文
 struct msg_msg {
 	struct list_head m_list; 
 	long  m_type;          
 	int m_ts;           /* message text size */
-	struct msg_msgseg* next;
+	struct msg_msgseg* next;	//不在同一页的时候
 	/* the actual message follows immediately */
 };
 
@@ -65,14 +67,15 @@ struct msg_msg {
 #define DATALEN_SEG	(PAGE_SIZE-sizeof(struct msg_msgseg))
 
 /* one msq_queue structure for each present queue on the system */
+//报文队列头
 struct msg_queue {
-	struct kern_ipc_perm q_perm;
+	struct kern_ipc_perm q_perm;	//是第一个成分，全局的ipc_ids的entries
 	time_t q_stime;			/* last msgsnd time */
 	time_t q_rtime;			/* last msgrcv time */
 	time_t q_ctime;			/* last change time */
 	unsigned long q_cbytes;		/* current number of bytes on queue */
 	unsigned long q_qnum;		/* number of messages in queue */
-	unsigned long q_qbytes;		/* max number of bytes on queue */
+	unsigned long q_qbytes;		/* max number of bytes on queue *///该报文队列的总量
 	pid_t q_lspid;			/* pid of last msgsnd */
 	pid_t q_lrpid;			/* last receive pid */
 
@@ -122,7 +125,8 @@ static int newque (key_t key, int msgflg)
 	msq  = (struct msg_queue *) kmalloc (sizeof (*msq), GFP_KERNEL);
 	if (!msq) 
 		return -ENOMEM;
-	id = ipc_addid(&msg_ids, &msq->q_perm, msg_ctlmni);
+	//全局的msg_ids中entries与msq的q_perm相结合起来
+	id = ipc_addid(&msg_ids, &msq->q_perm, msg_ctlmni);	//全局分配一个标识号
 	if(id == -1) {
 		kfree(msq);
 		return -ENOSPC;
@@ -140,7 +144,7 @@ static int newque (key_t key, int msgflg)
 	INIT_LIST_HEAD(&msq->q_senders);
 	msg_unlock(id);
 
-	return msg_buildid(id,msq->q_perm.seq);
+	return msg_buildid(id,msq->q_perm.seq);	//转换成一个一体化的标识
 }
 
 static void free_msg(struct msg_msg* msg)
@@ -166,11 +170,11 @@ static struct msg_msg* load_msg(void* src, int len)
 	if(alen > DATALEN_MSG)
 		alen = DATALEN_MSG;
 
-	msg = (struct msg_msg *) kmalloc (sizeof(*msg) + alen, GFP_KERNEL);
+	msg = (struct msg_msg *) kmalloc (sizeof(*msg) + alen, GFP_KERNEL);	//申请分配的内存
 	if(msg==NULL)
 		return ERR_PTR(-ENOMEM);
 
-	msg->next = NULL;
+	msg->next = NULL;	//先是为空
 
 	if (copy_from_user(msg+1, src, alen)) {
 		err = -EFAULT;
@@ -185,7 +189,7 @@ static struct msg_msg* load_msg(void* src, int len)
 		alen = len;
 		if(alen > DATALEN_SEG)
 			alen = DATALEN_SEG;
-		seg = (struct msg_msgseg *) kmalloc (sizeof(*seg) + alen, GFP_KERNEL);
+		seg = (struct msg_msgseg *) kmalloc (sizeof(*seg) + alen, GFP_KERNEL);	//申请
 		if(seg==NULL) {
 			err=-ENOMEM;
 			goto out_err;
@@ -238,7 +242,7 @@ static inline void ss_add(struct msg_queue* msq, struct msg_sender* mss)
 {
 	mss->tsk=current;
 	current->state=TASK_INTERRUPTIBLE;
-	list_add_tail(&mss->list,&msq->q_senders);
+	list_add_tail(&mss->list,&msq->q_senders);	
 }
 
 static inline void ss_del(struct msg_sender* mss)
@@ -247,6 +251,7 @@ static inline void ss_del(struct msg_sender* mss)
 		list_del(&mss->list);
 }
 
+//将像等待此队列发送报文的进程全部唤醒
 static void ss_wakeup(struct list_head* h, int kill)
 {
 	struct list_head *tmp;
@@ -273,7 +278,7 @@ static void expunge_all(struct msg_queue* msq, int res)
 		
 		msr = list_entry(tmp,struct msg_receiver,r_list);
 		tmp = tmp->next;
-		msr->r_msg = ERR_PTR(res);
+		msr->r_msg = ERR_PTR(res);	//出错代码
 		wake_up_process(msr->r_tsk);
 	}
 }
@@ -283,9 +288,9 @@ static void freeque (int id)
 	struct msg_queue *msq;
 	struct list_head *tmp;
 
-	msq = msg_rmid(id);
+	msq = msg_rmid(id);			//将ipc_perms指针置为1，并释放掉
 
-	expunge_all(msq,-EIDRM);
+	expunge_all(msq,-EIDRM);	//相同的动作
 	ss_wakeup(&msq->q_senders,1);
 	msg_unlock(id);
 		
@@ -294,32 +299,34 @@ static void freeque (int id)
 		struct msg_msg* msg = list_entry(tmp,struct msg_msg,m_list);
 		tmp = tmp->next;
 		atomic_dec(&msg_hdrs);
-		free_msg(msg);
+		free_msg(msg);	//释放消息
 	}
 	atomic_sub(msq->q_cbytes, &msg_bytes);
-	kfree(msq);
+	kfree(msq);	//释放队列头
 }
+//msg_lock
 
+//创建报文队列
 asmlinkage long sys_msgget (key_t key, int msgflg)
-{
+{	//ipc_ids
 	int id, ret = -EPERM;
 	struct msg_queue *msq;
 	
 	down(&msg_ids.sem);
-	if (key == IPC_PRIVATE) 
+	if (key == IPC_PRIVATE)			//当为IPC_PRIVATE时，无条件的建立一个报文队列
 		ret = newque(key, msgflg);
-	else if ((id = ipc_findkey(&msg_ids, key)) == -1) { /* key not used */
-		if (!(msgflg & IPC_CREAT))
+	else if ((id = ipc_findkey(&msg_ids, key)) == -1) { /* key not used */	//那就寻找已给定的键值
+		if (!(msgflg & IPC_CREAT))	//没有找到时
 			ret = -ENOENT;
 		else
 			ret = newque(key, msgflg);
-	} else if (msgflg & IPC_CREAT && msgflg & IPC_EXCL) {
+	} else if (msgflg & IPC_CREAT && msgflg & IPC_EXCL) {	//独占性的创建
 		ret = -EEXIST;
-	} else {
+	} else {	//共享创建
 		msq = msg_lock(id);
 		if(msq==NULL)
 			BUG();
-		if (ipcperms(&msq->q_perm, msgflg))
+		if (ipcperms(&msq->q_perm, msgflg))	//检查权限
 			ret = -EACCES;
 		else
 			ret = msg_buildid(id, msq->q_perm.seq);
@@ -328,7 +335,7 @@ asmlinkage long sys_msgget (key_t key, int msgflg)
 	up(&msg_ids.sem);
 	return ret;
 }
-
+//sys_ipc
 static inline unsigned long copy_msqid_to_user(void *buf, struct msqid64_ds *in, int version)
 {
 	switch(version) {
@@ -419,7 +426,8 @@ static inline unsigned long copy_msqid_from_user(struct msq_setbuf *out, void *b
 		return -EINVAL;
 	}
 }
-
+//IPC_RMID
+//报文控制
 asmlinkage long sys_msgctl (int msqid, int cmd, struct msqid_ds *buf)
 {
 	int err, version;
@@ -511,7 +519,7 @@ asmlinkage long sys_msgctl (int msqid, int cmd, struct msqid_ds *buf)
 	case IPC_SET:
 		if (!buf)
 			return -EFAULT;
-		if (copy_msqid_from_user (&setbuf, buf, version))
+		if (copy_msqid_from_user (&setbuf, buf, version))	//从用户空间复制过来msqid_ds
 			return -EFAULT;
 		break;
 	case IPC_RMID:
@@ -551,15 +559,15 @@ asmlinkage long sys_msgctl (int msqid, int cmd, struct msqid_ds *buf)
 		/* sleeping receivers might be excluded by
 		 * stricter permissions.
 		 */
-		expunge_all(msq,-EAGAIN);
+		expunge_all(msq,-EAGAIN);		//使等待此队列接受报文的进程出错返回
 		/* sleeping senders might be able to send
 		 * due to a larger queue size.
 		 */
-		ss_wakeup(&msq->q_senders,0);
+		ss_wakeup(&msq->q_senders,0);	//将正在等待向此队列发送报文的进程全部唤醒
 		msg_unlock(msqid);
 		break;
 	}
-	case IPC_RMID:
+	case IPC_RMID:	//撤销一个标识号
 		freeque (msqid); 
 		break;
 	}
@@ -582,7 +590,7 @@ static int testmsg(struct msg_msg* msg,long type,int mode)
 		case SEARCH_ANY:
 			return 1;
 		case SEARCH_LESSEQUAL:
-			if(msg->m_type <=type)
+			if(msg->m_type <=type)	//也就是该报文的类型值小于等于作为参数穿过来的msgtype
 				return 1;
 			break;
 		case SEARCH_EQUAL:
@@ -600,15 +608,15 @@ static int testmsg(struct msg_msg* msg,long type,int mode)
 int inline pipelined_send(struct msg_queue* msq, struct msg_msg* msg)
 {
 	struct list_head* tmp;
-
+//msg_receiver
 	tmp = msq->q_receivers.next;
 	while (tmp != &msq->q_receivers) {
 		struct msg_receiver* msr;
 		msr = list_entry(tmp,struct msg_receiver,r_list);
 		tmp = tmp->next;
-		if(testmsg(msg,msr->r_msgtype,msr->r_mode)) {
+		if(testmsg(msg,msr->r_msgtype,msr->r_mode)) {	//检查接收的报文种类与模式是否与到来的相符
 			list_del(&msr->r_list);
-			if(msr->r_maxsize < msg->m_ts) {
+			if(msr->r_maxsize < msg->m_ts) {		//看空间够不够用
 				msr->r_msg = ERR_PTR(-E2BIG);
 				wake_up_process(msr->r_tsk);
 			} else {
@@ -632,19 +640,19 @@ asmlinkage long sys_msgsnd (int msqid, struct msgbuf *msgp, size_t msgsz, int ms
 	
 	if (msgsz > msg_ctlmax || (long) msgsz < 0 || msqid < 0)
 		return -EINVAL;
-	if (get_user(mtype, &msgp->mtype))
+	if (get_user(mtype, &msgp->mtype))	//将用户空间参数拷贝过来
 		return -EFAULT; 
 	if (mtype < 1)
 		return -EINVAL;
 
-	msg = load_msg(msgp->mtext, msgsz);
+	msg = load_msg(msgp->mtext, msgsz);	//拷贝报文
 	if(IS_ERR(msg))
 		return PTR_ERR(msg);
 
 	msg->m_type = mtype;
 	msg->m_ts = msgsz;
 
-	msq = msg_lock(msqid);
+	msq = msg_lock(msqid);	//根据给定的标识号找到对应的报文队列，将其数据结构上锁
 	err=-EINVAL;
 	if(msq==NULL)
 		goto out_free;
@@ -657,16 +665,16 @@ retry:
 	if (ipcperms(&msq->q_perm, S_IWUGO)) 
 		goto out_unlock_free;
 
-	if(msgsz + msq->q_cbytes > msq->q_qbytes ||
-		1 + msq->q_qnum > msq->q_qbytes) {
+	if(msgsz + msq->q_cbytes > msq->q_qbytes ||		//当前报文队列的大小加上当前总计的字节数
+		1 + msq->q_qnum > msq->q_qbytes) {	//当前报文队列的个数大于总计的字节数（说明每一个报文都只有一个字节）
 		struct msg_sender s;
 
-		if(msgflg&IPC_NOWAIT) {
-			err=-EAGAIN;
+		if(msgflg&IPC_NOWAIT) {		//是否为1
+			err=-EAGAIN;		//不等，直接返回出错
 			goto out_unlock_free;
 		}
-		ss_add(msq, &s);
-		msg_unlock(msqid);
+		ss_add(msq, &s);	//睡眠等待，要将一个q_senders放入到报文队列的q_senders中
+		msg_unlock(msqid);	//解锁
 		schedule();
 		current->state= TASK_RUNNING;
 
@@ -676,14 +684,14 @@ retry:
 			goto out_free;
 		ss_del(&s);
 		
-		if (signal_pending(current)) {
-			err=-EINTR;
+		if (signal_pending(current)) {	//信号处理
+			err=-EINTR;		//表示系统调用在中途中被打断的
 			goto out_unlock_free;
 		}
-		goto retry;
+		goto retry;			//不确定性，新的检查
 	}
 
-	if(!pipelined_send(msq,msg)) {
+	if(!pipelined_send(msq,msg)) {	//当前没有接受者的时候
 		/* noone is waiting for this message, enqueue it */
 		list_add_tail(&msg->m_list,&msq->q_messages);
 		msq->q_cbytes += msgsz;
@@ -704,7 +712,7 @@ out_free:
 		free_msg(msg);
 	return err;
 }
-
+//sys_ipc
 int inline convert_mode(long* msgtyp, int msgflg)
 {
 	/* 
@@ -736,51 +744,51 @@ asmlinkage long sys_msgrcv (int msqid, struct msgbuf *msgp, size_t msgsz,
 
 	if (msqid < 0 || (long) msgsz < 0)
 		return -EINVAL;
-	mode = convert_mode(&msgtyp,msgflg);
+	mode = convert_mode(&msgtyp,msgflg);	//归纳接收报文时所遵循的准则
 
 	msq = msg_lock(msqid);
 	if(msq==NULL)
 		return -EINVAL;
 retry:
 	err=-EACCES;
-	if (ipcperms (&msq->q_perm, S_IRUGO))
+	if (ipcperms (&msq->q_perm, S_IRUGO))		//检查权限
 		goto out_unlock;
 
 	tmp = msq->q_messages.next;
 	found_msg=NULL;
 	while (tmp != &msq->q_messages) {
-		msg = list_entry(tmp,struct msg_msg,m_list);
+		msg = list_entry(tmp,struct msg_msg,m_list);	//只是获得指针
 		if(testmsg(msg,msgtyp,mode)) {
 			found_msg = msg;
 			if(mode == SEARCH_LESSEQUAL && msg->m_type != 1) {
 				found_msg=msg;
-				msgtyp=msg->m_type-1;
+				msgtyp=msg->m_type-1;		//减小
 			} else {
 				found_msg=msg;
 				break;
 			}
 		}
-		tmp = tmp->next;
+		tmp = tmp->next;		//下一个
 	}
-	if(found_msg) {
+	if(found_msg) {		//从队列中找到了符合接收准则的报文，还不一定就能够接收这个报文，还要看缓冲区
 		msg=found_msg;
-		if ((msgsz < msg->m_ts) && !(msgflg & MSG_NOERROR)) {
+		if ((msgsz < msg->m_ts) && !(msgflg & MSG_NOERROR)) {	//缓冲区不够大的时候，而且不允许切割
 			err=-E2BIG;
 			goto out_unlock;
 		}
-		list_del(&msg->m_list);
+		list_del(&msg->m_list);				//离开队列
 		msq->q_qnum--;
 		msq->q_rtime = CURRENT_TIME;
 		msq->q_lrpid = current->pid;
 		msq->q_cbytes -= msg->m_ts;
 		atomic_sub(msg->m_ts,&msg_bytes);
 		atomic_dec(&msg_hdrs);
-		ss_wakeup(&msq->q_senders,0);
+		ss_wakeup(&msq->q_senders,0);	//唤醒那些这些发送等待的进程
 		msg_unlock(msqid);
 out_success:
-		msgsz = (msgsz > msg->m_ts) ? msg->m_ts : msgsz;
+		msgsz = (msgsz > msg->m_ts) ? msg->m_ts : msgsz;	//缓冲区空间不够大的时候
 		if (put_user (msg->m_type, &msgp->mtype) ||
-		    store_msg(msgp->mtext, msg, msgsz)) {
+		    store_msg(msgp->mtext, msg, msgsz)) {			//将报文复制到用户空间
 			    msgsz = -EFAULT;
 		}
 		free_msg(msg);
@@ -791,7 +799,7 @@ out_success:
 		/* no message waiting. Prepare for pipelined
 		 * receive.
 		 */
-		if (msgflg & IPC_NOWAIT) {
+		if (msgflg & IPC_NOWAIT) {		//不能等的
 			err=-ENOMSG;
 			goto out_unlock;
 		}
@@ -804,14 +812,14 @@ out_success:
 		 else
 		 	msr_d.r_maxsize = msgsz;
 		msr_d.r_msg = ERR_PTR(-EAGAIN);
-		current->state = TASK_INTERRUPTIBLE;
+		current->state = TASK_INTERRUPTIBLE;	//睡眠
 		msg_unlock(msqid);
 
 		schedule();
 		current->state = TASK_RUNNING;
 
 		msg = (struct msg_msg*) msr_d.r_msg;
-		if(!IS_ERR(msg)) 
+		if(!IS_ERR(msg))	//说明已经成功了
 			goto out_success;
 
 		t = msg_lock(msqid);
@@ -827,11 +835,11 @@ out_success:
 			goto out_success;
 		}
 		err = PTR_ERR(msg);
-		if(err == -EAGAIN) {
+		if(err == -EAGAIN) {	//出错代码
 			if(msqid==-1)
 				BUG();
 			list_del(&msr_d.r_list);
-			if (signal_pending(current))
+			if (signal_pending(current))	//处理信号
 				err=-EINTR;
 			 else
 				goto retry;
@@ -842,7 +850,7 @@ out_unlock:
 		msg_unlock(msqid);
 	return err;
 }
-
+//sys_ipc
 #ifdef CONFIG_PROC_FS
 static int sysvipc_msg_read_proc(char *buffer, char **start, off_t offset, int length, int *eof, void *data)
 {

@@ -110,7 +110,7 @@ static int grow_ary(struct ipc_ids* ids, int newsize)
 
 	if(newsize > IPCMNI)
 		newsize = IPCMNI;
-	if(newsize <= ids->size)
+	if(newsize <= ids->size)	//小于当前数组大小时，直接返回；否则说明不够用了，要重新申请
 		return newsize;
 
 	new = ipc_alloc(sizeof(struct ipc_id)*newsize);
@@ -127,7 +127,7 @@ static int grow_ary(struct ipc_ids* ids, int newsize)
 	i = ids->size;
 	ids->size = newsize;
 	spin_unlock(&ids->ary);
-	ipc_free(old, sizeof(struct ipc_id)*i);
+	ipc_free(old, sizeof(struct ipc_id)*i);//释放原来的
 	return ids->size;
 }
 
@@ -158,7 +158,7 @@ found:
 	if (id > ids->max_id)
 		ids->max_id = id;
 
-	new->cuid = new->uid = current->euid;
+	new->cuid = new->uid = current->euid;	//更新
 	new->gid = new->cgid = current->egid;
 
 	new->seq = ids->seq++;
@@ -166,7 +166,7 @@ found:
 		ids->seq = 0;
 
 	spin_lock(&ids->ary);
-	ids->entries[id].p = new;
+	ids->entries[id].p = new;	//连接起来
 	return id;
 }
 
@@ -188,7 +188,7 @@ struct kern_ipc_perm* ipc_rmid(struct ipc_ids* ids, int id)
 	if(lid > ids->size)
 		BUG();
 	p = ids->entries[lid].p;
-	ids->entries[lid].p = NULL;
+	ids->entries[lid].p = NULL;		//设为NULL
 	if(p==NULL)
 		BUG();
 	ids->in_use--;

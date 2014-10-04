@@ -35,10 +35,10 @@ struct ipc_perm
  * Control commands used with semctl, msgctl and shmctl 
  * see also specific commands in sem.h, msg.h and shm.h
  */
-#define IPC_RMID 0     /* remove resource */
-#define IPC_SET  1     /* set ipc_perm options */
-#define IPC_STAT 2     /* get ipc_perm options */
-#define IPC_INFO 3     /* see ipcs */
+#define IPC_RMID 0     /* remove resource */		//用来撤销一个标识号
+#define IPC_SET  1     /* set ipc_perm options */	//用来改变相应的ipc措施
+#define IPC_STAT 2     /* get ipc_perm options */	//用来获取相关设施的状态信息
+#define IPC_INFO 3     /* see ipcs */				//用来获取相关状态的统计信息
 
 /*
  * Version flags for semctl, msgctl, and shmctl commands
@@ -56,7 +56,7 @@ struct ipc_perm
 /* used by in-kernel data structures */
 struct kern_ipc_perm
 {
-	key_t		key;
+	key_t		key;	//实际上是一个整数，报文队列以键值而不是文件名标示的，每一个报文队列的键值必须唯一
 	uid_t		uid;
 	gid_t		gid;
 	uid_t		cuid;

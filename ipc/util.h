@@ -20,7 +20,7 @@ struct ipc_ids {
 	unsigned short seq_max;
 	struct semaphore sem;	
 	spinlock_t ary;
-	struct ipc_id* entries;
+	struct ipc_id* entries;	//指向kern_ipc_perm
 };
 
 struct ipc_id {

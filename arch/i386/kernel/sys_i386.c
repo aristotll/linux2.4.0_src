@@ -133,6 +133,7 @@ asmlinkage int old_select(struct sel_arg_struct *arg)
  *
  * This is really horribly ugly.
  */
+//根据调用参数操作码的不同，分别处理三种进程间通信机制
 asmlinkage int sys_ipc (uint call, int first, int second,
 			int third, void *ptr, long fifth)
 {
@@ -155,10 +156,10 @@ asmlinkage int sys_ipc (uint call, int first, int second,
 		return sys_semctl (first, second, third, fourth);
 	}
 
-	case MSGSND:
+	case MSGSND:	//报文发送
 		return sys_msgsnd (first, (struct msgbuf *) ptr, 
 				   second, third);
-	case MSGRCV:
+	case MSGRCV:	//报文接收
 		switch (version) {
 		case 0: {
 			struct ipc_kludge tmp;
@@ -177,9 +178,9 @@ asmlinkage int sys_ipc (uint call, int first, int second,
 					   (struct msgbuf *) ptr,
 					   second, fifth, third);
 		}
-	case MSGGET:
-		return sys_msgget ((key_t) first, second);
-	case MSGCTL:
+	case MSGGET:	//报文创建
+		return sys_msgget ((key_t) first, second);		//创建报文队列
+	case MSGCTL:	//报文机制的控制与设置
 		return sys_msgctl (first, second, (struct msqid_ds *) ptr);
 
 	case SHMAT:
