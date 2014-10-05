@@ -269,7 +269,7 @@ struct page * shmem_nopage(struct vm_area_struct * vma, unsigned long address, i
 	entry = shmem_swp_entry (info, idx);
 	if (!entry)
 		goto oom;
-	if (entry->val) {
+	if (entry->val) {	//表示页面在交换设备上
 		unsigned long flags;
 
 		/* Look it up and read it in.. */
@@ -294,7 +294,7 @@ struct page * shmem_nopage(struct vm_area_struct * vma, unsigned long address, i
 		add_to_page_cache_locked(page, mapping, idx);
 		info->swapped--;
 		spin_unlock (&info->lock);
-	} else {
+	} else {	//页面从未映射过
 		spin_lock (&inode->i_sb->u.shmem_sb.stat_lock);
 		if (inode->i_sb->u.shmem_sb.free_blocks == 0)
 			goto no_space;
@@ -319,7 +319,7 @@ cached_page:
 		struct page *new_page = page_cache_alloc();
 
 		if (new_page) {
-			copy_user_highpage(new_page, page, address);
+			copy_user_highpage(new_page, page, address);	//要复制一份独占的
 			flush_page_to_ram(new_page);
 		} else
 			new_page = NOPAGE_OOM;
@@ -337,7 +337,7 @@ out:
 	up(&inode->i_sem);
 	return page;
 }
-
+//sys_ipc
 struct inode *shmem_get_inode(struct super_block *sb, int mode, int dev)
 {
 	struct inode * inode;
@@ -370,7 +370,7 @@ struct inode *shmem_get_inode(struct super_block *sb, int mode, int dev)
 			inode->i_fop = &shmem_file_operations;
 			break;
 		case S_IFDIR:
-			inode->i_op = &shmem_dir_inode_operations;
+			inode->i_op = &shmem_dir_inode_operations;	//设置
 			inode->i_fop = &shmem_dir_operations;
 			break;
 		case S_IFLNK:
@@ -711,7 +711,7 @@ static int __init init_shmem_fs(void)
 		return error;
 	}
 
-	res = kern_mount(&shmem_fs_type);
+	res = kern_mount(&shmem_fs_type);	//安装特殊文件系统shm
 	if (IS_ERR (res)) {
 		printk (KERN_ERR "could not kern_mount shmem fs\n");
 		unregister_filesystem(&shmem_fs_type);
@@ -820,13 +820,13 @@ struct file *shmem_file_setup(char * name, loff_t size)
 	this.name = name;
 	this.len = strlen(name);
 	this.hash = 0; /* will go */
-	root = shmem_fs_type.kern_mnt->mnt_root;
+	root = shmem_fs_type.kern_mnt->mnt_root;	//指向shm文件系统的dentry
 	dentry = d_alloc(root, &this);
 	if (!dentry)
 		goto out;
 
 	error = -ENFILE;
-	file = get_empty_filp();
+	file = get_empty_filp();	//得到一个空的file结构
 	if (!file)
 		goto put_dentry;
 
@@ -839,7 +839,7 @@ struct file *shmem_file_setup(char * name, loff_t size)
 	dentry->d_inode->i_size = size;
 	file->f_vfsmnt = mntget(shmem_fs_type.kern_mnt);
 	file->f_dentry = dentry;
-	file->f_op = &shmem_file_operations;
+	file->f_op = &shmem_file_operations;	//设置
 	file->f_mode = FMODE_WRITE | FMODE_READ;
 	inode->i_nlink = 0;	/* It is unlinked */
 	return(file);

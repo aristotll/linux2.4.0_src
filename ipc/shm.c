@@ -25,11 +25,11 @@
 #include <asm/uaccess.h>
 
 #include "util.h"
-
+//init_shmem_fs
 struct shmid_kernel /* private to the kernel */
 {	
-	struct kern_ipc_perm	shm_perm;
-	struct file *		shm_file;
+	struct kern_ipc_perm	shm_perm;	//内嵌的
+	struct file *		shm_file;		//受到内存页面的管理机制调度
 	int			id;
 	unsigned long		shm_nattch;
 	unsigned long		shm_segsz;
@@ -174,12 +174,12 @@ static int newseg (key_t key, int shmflg, size_t size)
 {
 	int error;
 	struct shmid_kernel *shp;
-	int numpages = (size + PAGE_SIZE -1) >> PAGE_SHIFT;
+	int numpages = (size + PAGE_SIZE -1) >> PAGE_SHIFT;	//首先计算出所需的存储页面数量numpages
 	struct file * file;
 	char name[13];
 	int id;
 
-	if (size < SHMMIN || size > shm_ctlmax)
+	if (size < SHMMIN || size > shm_ctlmax)	//对资源数量的一些检查
 		return -EINVAL;
 
 	if (shm_tot + numpages >= shm_ctlall)
@@ -189,13 +189,14 @@ static int newseg (key_t key, int shmflg, size_t size)
 	if (!shp)
 		return -ENOMEM;
 	sprintf (name, "SYSV%08x", key);
+	//建设文件
 	file = shmem_file_setup(name, size);
 	error = PTR_ERR(file);
 	if (IS_ERR(file))
 		goto no_file;
 
 	error = -ENOSPC;
-	id = shm_addid(shp);
+	id = shm_addid(shp);	//此处的file不属于一个进程上下文
 	if(id == -1) 
 		goto no_id;
 	shp->shm_perm.key = key;
@@ -220,21 +221,21 @@ no_file:
 	kfree(shp);
 	return error;
 }
-
+//共享内存区的创建与寻找
 asmlinkage long sys_shmget (key_t key, size_t size, int shmflg)
 {
 	struct shmid_kernel *shp;
 	int err, id = 0;
 
 	down(&shm_ids.sem);
-	if (key == IPC_PRIVATE) {
+	if (key == IPC_PRIVATE) {	//专用的
 		err = newseg(key, shmflg, size);
 	} else if ((id = ipc_findkey(&shm_ids, key)) == -1) {
-		if (!(shmflg & IPC_CREAT))
+		if (!(shmflg & IPC_CREAT))	//用于创建
 			err = -ENOENT;
 		else
-			err = newseg(key, shmflg, size);
-	} else if ((shmflg & IPC_CREAT) && (shmflg & IPC_EXCL)) {
+			err = newseg(key, shmflg, size);		//创建新的共享内存区
+	} else if ((shmflg & IPC_CREAT) && (shmflg & IPC_EXCL)) {	
 		err = -EEXIST;
 	} else {
 		shp = shm_lock(id);
@@ -251,7 +252,7 @@ asmlinkage long sys_shmget (key_t key, size_t size, int shmflg)
 	up(&shm_ids.sem);
 	return err;
 }
-
+//sys_ipc
 static inline unsigned long copy_shmid_to_user(void *buf, struct shmid64_ds *in, int version)
 {
 	switch(version) {
@@ -553,6 +554,7 @@ out_unlock:
 /*
  * Fix shmaddr, allocate descriptor, map shm, add attach descriptor to lists.
  */
+//将这个内存区映射到本进程的虚存空间
 asmlinkage long sys_shmat (int shmid, char *shmaddr, int shmflg, ulong *raddr)
 {
 	struct shmid_kernel *shp;
@@ -568,14 +570,14 @@ asmlinkage long sys_shmat (int shmid, char *shmaddr, int shmflg, ulong *raddr)
 	if (shmid < 0)
 		return -EINVAL;
 
-	if ((addr = (ulong)shmaddr)) {
+	if ((addr = (ulong)shmaddr)) {	//shmaddr要被映射的起始地址
 		if (addr & (SHMLBA-1)) {
 			if (shmflg & SHM_RND)
 				addr &= ~(SHMLBA-1);	   /* round down */
 			else
 				return -EINVAL;
 		}
-		flags = MAP_SHARED | MAP_FIXED;
+		flags = MAP_SHARED | MAP_FIXED;		//MAP_SHARED表示地址是否 处理过
 	} else
 		flags = MAP_SHARED;
 
@@ -605,6 +607,7 @@ asmlinkage long sys_shmat (int shmid, char *shmaddr, int shmflg, ulong *raddr)
 	shm_unlock(shmid);
 
 	down(&current->mm->mmap_sem);
+	//do_mmap建立文件与虚存空间的映射
 	user_addr = (void *) do_mmap (file, addr, file->f_dentry->d_inode->i_size, prot, flags, 0);
 	up(&current->mm->mmap_sem);
 
@@ -630,6 +633,7 @@ asmlinkage long sys_shmat (int shmid, char *shmaddr, int shmflg, ulong *raddr)
  * detach and kill segment if marked destroyed.
  * The work is done in shm_close.
  */
+//解除映射
 asmlinkage long sys_shmdt (char *shmaddr)
 {
 	struct mm_struct *mm = current->mm;
@@ -640,7 +644,7 @@ asmlinkage long sys_shmdt (char *shmaddr)
 		shmdnext = shmd->vm_next;
 		if (shmd->vm_ops == &shm_vm_ops
 		    && shmd->vm_start - (shmd->vm_pgoff << PAGE_SHIFT) == (ulong) shmaddr)
-			do_munmap(mm, shmd->vm_start, shmd->vm_end - shmd->vm_start);
+			do_munmap(mm, shmd->vm_start, shmd->vm_end - shmd->vm_start);	//剪除映射
 	}
 	up(&mm->mmap_sem);
 	return 0;

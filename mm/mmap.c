@@ -251,7 +251,7 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr, unsigned lon
 	/* Obtain the address to map to. we verify (or select) it and ensure
 	 * that it represents a valid section of the address space.
 	 */
-	if (flags & MAP_FIXED) {
+	if (flags & MAP_FIXED) {	//不为0
 		if (addr & ~PAGE_MASK)
 			return -EINVAL;
 	} else {
@@ -322,12 +322,13 @@ unsigned long do_mmap_pgoff(struct file * file, unsigned long addr, unsigned lon
 		goto free_vma;
 
 	if (file) {
-		if (vma->vm_flags & VM_DENYWRITE) {
-			error = deny_write_access(file);
+		if (vma->vm_flags & VM_DENYWRITE) {		//表示不允许常规文件来访问
+			error = deny_write_access(file);	//来排斥常规文件的操作
 			if (error)
 				goto free_vma;
 			correct_wcount = 1;
 		}
+		//shmem_nopage
 		vma->vm_file = file;
 		get_file(file);
 		error = file->f_op->mmap(file, vma);		//来建立映射

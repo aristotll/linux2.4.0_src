@@ -187,7 +187,7 @@ asmlinkage int sys_ipc (uint call, int first, int second,
 		switch (version) {
 		default: {
 			ulong raddr;
-			ret = sys_shmat (first, (char *) ptr, second, &raddr);
+			ret = sys_shmat (first, (char *) ptr, second, &raddr);	//创建共享内存区的映射
 			if (ret)
 				return ret;
 			return put_user (raddr, (ulong *) third);
@@ -198,8 +198,8 @@ asmlinkage int sys_ipc (uint call, int first, int second,
 			return sys_shmat (first, (char *) ptr, second, (ulong *) third);
 		}
 	case SHMDT: 
-		return sys_shmdt ((char *)ptr);
-	case SHMGET:
+		return sys_shmdt ((char *)ptr);	//撤销共享内存区的映射
+	case SHMGET:		//共享内存区的创建与寻找
 		return sys_shmget (first, second, third);
 	case SHMCTL:
 		return sys_shmctl (first, second,
