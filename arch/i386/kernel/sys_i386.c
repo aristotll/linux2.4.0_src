@@ -143,11 +143,11 @@ asmlinkage int sys_ipc (uint call, int first, int second,
 	call &= 0xffff;
 
 	switch (call) {
-	case SEMOP:
+	case SEMOP:			//信号量操作
 		return sys_semop (first, (struct sembuf *)ptr, second);
-	case SEMGET:
+	case SEMGET:		//创建或寻找信号量
 		return sys_semget (first, second, third);
-	case SEMCTL: {
+	case SEMCTL: {		//信号量的控制与管理
 		union semun fourth;
 		if (!ptr)
 			return -EINVAL;

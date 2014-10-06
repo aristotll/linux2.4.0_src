@@ -36,9 +36,10 @@ struct semid_ds {
 
 /* semop system calls takes an array of these. */
 struct sembuf {
-	unsigned short  sem_num;	/* semaphore index in array */
-	short		sem_op;		/* semaphore operation */
-	short		sem_flg;	/* operation flags */
+	unsigned short  sem_num;	/* semaphore index in array */	//信号量下标
+	short		sem_op;		/* semaphore operation */			//一个小小的整数，申请或者释放
+	short		sem_flg;	/* operation flags */	//一个IPC_NOWAIT表示条件不满足时不要睡眠等待，而立即返回；
+													//一个是SEM_UNDO，表示留下遗嘱，万一当前进程退出时会将所有的资源释放掉
 };
 
 /* arg for semctl system calls. */
@@ -89,7 +90,7 @@ struct sem_array {
 	struct kern_ipc_perm	sem_perm;	/* permissions .. see ipc.h */
 	time_t			sem_otime;	/* last semop time */
 	time_t			sem_ctime;	/* last change time */
-	struct sem		*sem_base;	/* ptr to first semaphore in array */
+	struct sem		*sem_base;	/* ptr to first semaphore in array */	//大小由nsems来决定的
 	struct sem_queue	*sem_pending;	/* pending operations to be processed */
 	struct sem_queue	**sem_pending_last; /* last pending operation */
 	struct sem_undo		*undo;		/* undo requests on this array */
@@ -115,8 +116,8 @@ struct sem_queue {
  * when the process exits.
  */
 struct sem_undo {
-	struct sem_undo *	proc_next;	/* next entry on this process */
-	struct sem_undo *	id_next;	/* next entry on this semaphore set */
+	struct sem_undo *	proc_next;	/* next entry on this process */	//下一个在这个进程的信号量
+	struct sem_undo *	id_next;	/* next entry on this semaphore set */	//下一个在这个信号量集合上的
 	int			semid;		/* semaphore set identifier */
 	short *			semadj;		/* array of adjustments, one per semaphore */
 };

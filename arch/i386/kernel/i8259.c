@@ -460,6 +460,8 @@ void __init init_IRQ(void)
 	 * IRQ0 must be given a fixed assignment and initialized,
 	 * because it's used before the IO-APIC is set up.
 	 */
+
+	//SMP修改其中的4个
 	set_intr_gate(FIRST_DEVICE_VECTOR, interrupt[0]);
 
 	/*
@@ -477,6 +479,7 @@ void __init init_IRQ(void)
 
 #ifdef CONFIG_X86_LOCAL_APIC
 	/* self generated IPI for local APIC timer */
+	//设置中断向量
 	set_intr_gate(LOCAL_TIMER_VECTOR, apic_timer_interrupt);
 
 	/* IPI vectors for APIC spurious and error interrupts */
@@ -495,7 +498,7 @@ void __init init_IRQ(void)
 #ifndef CONFIG_VISWS
 	setup_irq(2, &irq2);
 #endif
-
+//send_IPI_mask
 	/*
 	 * External FPU? Set up irq13 if so, for
 	 * original braindamaged IBM FERR coupling.

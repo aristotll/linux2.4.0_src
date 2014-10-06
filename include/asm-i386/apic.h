@@ -61,9 +61,9 @@ extern inline void ack_APIC_irq(void)
 	 */
 
 	/* Docs say use 0 for future compatibility */
-	apic_write_around(APIC_EOI, 0);
+	apic_write_around(APIC_EOI, 0);	//往本地APIC的一个寄存器写一个0，表示已收到了中断请求
 }
-
+//init_IRQ
 extern int get_maxlvt(void);
 extern void connect_bsp_APIC (void);
 extern void disconnect_bsp_APIC (void);

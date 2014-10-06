@@ -497,6 +497,7 @@ void setup_APIC_timer(void * data)
 
 	t0 = apic_read(APIC_TMICT)*APIC_DIVISOR;
 	/* Wait till TMCCT gets reloaded from TMICT... */
+	//根据逻辑CPU号引入不同数量的延迟，使各个CPU中断在相位上互相错开
 	do {
 		t1 = apic_read(APIC_TMCCT)*APIC_DIVISOR;
 		delta = (int)(t0 - t1 - slice*(smp_processor_id()+1));
@@ -514,7 +515,7 @@ void setup_APIC_timer(void * data)
 
 	__restore_flags(flags);
 }
-
+//smp_apic_timer_interrupt
 /*
  * In this function we calibrate APIC bus clocks to the external
  * timer. Unfortunately we cannot use jiffies and the timer irq
@@ -594,6 +595,7 @@ int __init calibrate_APIC_clock(void)
 
 static unsigned int calibration_result;
 
+//设置APIC中的时钟中断源
 void __init setup_APIC_clocks (void)
 {
 	__cli();
@@ -607,7 +609,7 @@ void __init setup_APIC_clocks (void)
 	__sti();
 
 	/* and update all other cpus */
-	smp_call_function(setup_APIC_timer, (void *)calibration_result, 1, 1);
+	smp_call_function(setup_APIC_timer, (void *)calibration_result, 1, 1);	//执行cpu函数
 }
 
 /*
@@ -706,6 +708,7 @@ inline void smp_local_timer_interrupt(struct pt_regs * regs)
  */
 unsigned int apic_timer_irqs [NR_CPUS];
 
+//本地时钟服务程序
 void smp_apic_timer_interrupt(struct pt_regs * regs)
 {
 	int cpu = smp_processor_id();

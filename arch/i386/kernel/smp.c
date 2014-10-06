@@ -147,7 +147,8 @@ static inline void __send_IPI_shortcut(unsigned int shortcut, int vector)
 	 */
 	apic_write_around(APIC_ICR, cfg);
 }
-
+//setup_APIC_clocks
+//除自身的，广播
 static inline void send_IPI_allbutself(int vector)
 {
 	/*
@@ -169,6 +170,7 @@ void send_IPI_self(int vector)
 	__send_IPI_shortcut(APIC_DEST_SELF, vector);
 }
 
+//当一个CPU要引起其他CPU的INVALIDATE_TLB_VECTOR或RESCHEDULE_VECTOR中断时
 static inline void send_IPI_mask(int mask, int vector)
 {
 	unsigned long cfg;
@@ -180,7 +182,7 @@ static inline void send_IPI_mask(int mask, int vector)
 	/*
 	 * Wait for idle.
 	 */
-	apic_wait_icr_idle();
+	apic_wait_icr_idle();	//确认或等待APIC_ICR处于空闲状态
 
 	/*
 	 * prepare target chip field
@@ -191,7 +193,7 @@ static inline void send_IPI_mask(int mask, int vector)
 	/*
 	 * program the ICR 
 	 */
-	cfg = __prepare_ICR(0, vector);
+	cfg = __prepare_ICR(0, vector);		//写入数值
 	
 	/*
 	 * Send the IPI. The write to APIC_ICR fires this off.
@@ -199,7 +201,7 @@ static inline void send_IPI_mask(int mask, int vector)
 	apic_write_around(APIC_ICR, cfg);
 	__restore_flags(flags);
 }
-
+//smp_call_function_interrupt
 /*
  *	Smarter SMP flushing macros. 
  *		c/o Linus Torvalds.
@@ -518,11 +520,13 @@ void smp_send_stop(void)
  * all the work is done automatically when
  * we return from the interrupt.
  */
+//当一个cpu需要另一个cpu进行一次进程调度
 asmlinkage void smp_reschedule_interrupt(void)
 {
-	ack_APIC_irq();
+	ack_APIC_irq();		//向cpu发送确认
 }
-
+//send_IPI_allbutself
+//用来请求目标cpu执行一个指定的函数
 asmlinkage void smp_call_function_interrupt(void)
 {
 	void (*func) (void *info) = call_data->func;

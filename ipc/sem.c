@@ -110,7 +110,7 @@ void __init sem_init (void)
 }
 
 static int newary (key_t key, int nsems, int semflg)
-{
+{//nsems表示有几个信号量
 	int id;
 	struct sem_array *sma;
 	int size;
@@ -121,7 +121,7 @@ static int newary (key_t key, int nsems, int semflg)
 		return -ENOSPC;
 
 	size = sizeof (*sma) + nsems * sizeof (struct sem);
-	sma = (struct sem_array *) ipc_alloc(size);
+	sma = (struct sem_array *) ipc_alloc(size);		//填充相关的值
 	if (!sma) {
 		return -ENOMEM;
 	}
@@ -136,7 +136,7 @@ static int newary (key_t key, int nsems, int semflg)
 	sma->sem_perm.mode = (semflg & S_IRWXUGO);
 	sma->sem_perm.key = key;
 
-	sma->sem_base = (struct sem *) &sma[1];
+	sma->sem_base = (struct sem *) &sma[1];	//起始地址
 	/* sma->sem_pending = NULL; */
 	sma->sem_pending_last = &sma->sem_pending;
 	/* sma->undo = NULL; */
@@ -146,7 +146,7 @@ static int newary (key_t key, int nsems, int semflg)
 
 	return sem_buildid(id, sma->sem_perm.seq);
 }
-
+//创建或寻找信号量
 asmlinkage long sys_semget (key_t key, int nsems, int semflg)
 {
 	int id, err = -EINVAL;
@@ -157,12 +157,12 @@ asmlinkage long sys_semget (key_t key, int nsems, int semflg)
 	down(&sem_ids.sem);
 	
 	if (key == IPC_PRIVATE) {
-		err = newary(key, nsems, semflg);
+		err = newary(key, nsems, semflg);			//创建信号量
 	} else if ((id = ipc_findkey(&sem_ids, key)) == -1) {  /* key not used */
 		if (!(semflg & IPC_CREAT))
 			err = -ENOENT;
 		else
-			err = newary(key, nsems, semflg);
+			err = newary(key, nsems, semflg);		//创建信号量
 	} else if (semflg & IPC_CREAT && semflg & IPC_EXCL) {
 		err = -EEXIST;
 	} else {
@@ -250,7 +250,7 @@ static int try_atomic_semop (struct sem_array * sma, struct sembuf * sops,
 		curr = sma->sem_base + sop->sem_num;
 		sem_op = sop->sem_op;
 
-		if (!sem_op && curr->semval)
+		if (!sem_op && curr->semval)	//当前值非0，sem_op为0
 			goto would_block;
 
 		curr->sempid = (curr->sempid << 16) | pid;
@@ -258,13 +258,13 @@ static int try_atomic_semop (struct sem_array * sma, struct sembuf * sops,
 		if (sop->sem_flg & SEM_UNDO)
 			un->semadj[sop->sem_num] -= sem_op;
 
-		if (curr->semval < 0)
+		if (curr->semval < 0)			//变成了负数
 			goto would_block;
-		if (curr->semval > SEMVMX)
+		if (curr->semval > SEMVMX)		//超过了最大值SEMVMX
 			goto out_of_range;
 	}
 
-	if (do_undo)
+	if (do_undo)		//只是尝试一下，看有没有足够的资源，然后还原
 	{
 		sop--;
 		result = 0;
@@ -278,13 +278,14 @@ out_of_range:
 	result = -ERANGE;
 	goto undo;
 
-would_block:
+would_block:	//已经有了负数了
 	if (sop->sem_flg & IPC_NOWAIT)
 		result = -EAGAIN;
 	else
 		result = 1;
-
+//sys_ipc
 undo:
+	//撤销之前申请的
 	while (sop >= sops) {
 		curr = sma->sem_base + sop->sem_num;
 		curr->semval -= sop->sem_op;
@@ -312,15 +313,15 @@ static void update_queue (struct sem_array * sma)
 			continue;	/* this one was woken up before */
 
 		error = try_atomic_semop(sma, q->sops, q->nsops,
-					 q->undo, q->pid, q->alter);
+					 q->undo, q->pid, q->alter);	//q->alter如果原先是要获得，而现在只是来尝试一下
 
 		/* Does q->sleeper still need to sleep? */
 		if (error <= 0) {
 				/* Found one, wake it up */
-			wake_up_process(q->sleeper);
+			wake_up_process(q->sleeper);	//出错了
 			if (error == 0 && q->alter) {
 				/* if q-> alter let it self try */
-				q->status = 1;
+				q->status = 1;		//已经可以分配了
 				return;
 			}
 			q->status = error;
@@ -815,16 +816,16 @@ static int alloc_undo(struct sem_array *sma, struct sem_undo** unp, int semid, i
 
 	un->semadj = (short *) &un[1];
 	un->semid = semid;
-	un->proc_next = current->semundo;
+	un->proc_next = current->semundo;	//同一个进程
 	current->semundo = un;
-	un->id_next = sma->undo;
+	un->id_next = sma->undo;		//同一个信号两集合
 	sma->undo = un;
 	*unp = un;
 	return 0;
 }
 
 asmlinkage long sys_semop (int semid, struct sembuf *tsops, unsigned nsops)
-{
+{	//nsops表示sembuf所代表项有多少个
 	int error = -EINVAL;
 	struct sem_array *sma;
 	struct sembuf fast_sops[SEMOPM_FAST];
@@ -857,11 +858,11 @@ asmlinkage long sys_semop (int semid, struct sembuf *tsops, unsigned nsops)
 	for (sop = sops; sop < sops + nsops; sop++) {
 		if (sop->sem_num >= sma->sem_nsems)
 			goto out_unlock_free;
-		if (sop->sem_flg & SEM_UNDO)
+		if (sop->sem_flg & SEM_UNDO)		//统计SEM_UNDO的操作
 			undos++;
-		if (sop->sem_op < 0)
+		if (sop->sem_op < 0)		//降低
 			decrease = 1;
-		if (sop->sem_op > 0)
+		if (sop->sem_op > 0)		//改变
 			alter = 1;
 	}
 	alter |= decrease;
@@ -883,7 +884,7 @@ asmlinkage long sys_semop (int semid, struct sembuf *tsops, unsigned nsops)
 				un=un->proc_next;
 		}
 		if (!un) {
-			error = alloc_undo(sma,&un,semid,alter);
+			error = alloc_undo(sma,&un,semid,alter);	//分配一个
 			if(error)
 				goto out_free;
 		}
@@ -906,10 +907,10 @@ asmlinkage long sys_semop (int semid, struct sembuf *tsops, unsigned nsops)
 	queue.alter = decrease;
 	queue.id = semid;
 	if (alter)
-		append_to_queue(sma ,&queue);
+		append_to_queue(sma ,&queue);	//改变信号量的值，放入对位
 	else
-		prepend_to_queue(sma ,&queue);
-	current->semsleeping = &queue;
+		prepend_to_queue(sma ,&queue);	//否则放入队头
+	current->semsleeping = &queue;	//current指向该指针
 
 	for (;;) {
 		struct sem_array* tmp;
@@ -953,8 +954,8 @@ asmlinkage long sys_semop (int semid, struct sembuf *tsops, unsigned nsops)
 	current->semsleeping = NULL;
 	remove_from_queue(sma,&queue);
 update:
-	if (alter)
-		update_queue (sma);
+	if (alter)		//alter可能是释放
+		update_queue (sma);		//来查看
 out_unlock_free:
 	sem_unlock(semid);
 out_free:
