@@ -216,8 +216,9 @@ static void reschedule_idle(struct task_struct * p)
 	 * idle now.
 	 */
 	best_cpu = p->processor;
-	if (can_schedule(p, best_cpu)) {
-		tsk = idle_task(best_cpu);
+	//首先判断被剥夺的进程是否可以在原来的CPU上恢复运行
+	if (can_schedule(p, best_cpu)) {	//查看该cpu在这个进程的位图
+		tsk = idle_task(best_cpu);		//空转
 		if (cpu_curr(best_cpu) == tsk) {
 			int need_resched;
 send_now_idle:
@@ -255,13 +256,13 @@ send_now_idle:
 		 * a priority list between idle CPUs, but this is not
 		 * a problem.
 		 */
-		if (tsk == idle_task(cpu)) {
+		if (tsk == idle_task(cpu)) {	//空转的时候
 			if (last_schedule(cpu) < oldest_idle) {
 				oldest_idle = last_schedule(cpu);
 				target_tsk = tsk;
 			}
 		} else {
-			if (oldest_idle == -1ULL) {
+			if (oldest_idle == -1ULL) {	//或者goodness比较低的时候
 				int prio = preemption_goodness(tsk, p, cpu);
 
 				if (prio > max_prio) {
@@ -280,10 +281,12 @@ send_now_idle:
 		tsk->need_resched = 1;
 		if (tsk->processor != this_cpu)
 			smp_send_reschedule(tsk->processor);
+		//仅仅是让对应的CPU引起一次中断，执行完中断处理程序后，可能会进行进程调度
+		//找到了可以剥夺的进程，还要向其cpu发送相应的中RESCHEDULE_VECTOR断
 	}
 	return;
 		
-
+//signal_wake_up
 #else /* UP */
 	int this_cpu = smp_processor_id();
 	struct task_struct *tsk;
@@ -444,7 +447,7 @@ static inline void __schedule_tail(struct task_struct *prev)
 	 * to enter inside the critical section)
 	 */
 	policy = prev->policy;
-	prev->policy = policy & ~SCHED_YIELD;	//会清空的
+	prev->policy = policy & ~SCHED_YIELD;	//设置成礼让的
 	wmb();
 
 	/*
@@ -453,9 +456,9 @@ static inline void __schedule_tail(struct task_struct *prev)
 	 * also have to protect against the task exiting early.
 	 */
 	task_lock(prev);
-	prev->has_cpu = 0;
+	prev->has_cpu = 0;			//将has_cpu清0，表示这个进程已不在任何cpu上运行了
 	mb();
-	if (prev->state == TASK_RUNNING)
+	if (prev->state == TASK_RUNNING)	//说明是被剥夺的
 		goto needs_resched;
 
 out_unlock:
@@ -481,17 +484,17 @@ needs_resched:
 		 * no preemption-check is necessery:
 		 */
 		if ((prev == idle_task(smp_processor_id())) ||
-						(policy & SCHED_YIELD))
+						(policy & SCHED_YIELD))		//首先排除礼让的可能
 			goto out_unlock;
 
 		spin_lock_irqsave(&runqueue_lock, flags);
 		if (prev->state == TASK_RUNNING)
-			reschedule_idle(prev);
+			reschedule_idle(prev);			//尝试到其他cpu上运行
 		spin_unlock_irqrestore(&runqueue_lock, flags);
 		goto out_unlock;
 	}
 #else
-	prev->policy &= ~SCHED_YIELD;
+	prev->policy &= ~SCHED_YIELD;		//设置成礼让的
 #endif /* CONFIG_SMP */
 }
 
@@ -592,7 +595,7 @@ still_running_back:
 	 */
 	sched_data->curr = next;
 #ifdef CONFIG_SMP
- 	next->has_cpu = 1;
+ 	next->has_cpu = 1;						//为1，说明在哪一个cpu上运行
 	next->processor = this_cpu;
 #endif
 	spin_unlock_irq(&runqueue_lock);

@@ -311,8 +311,10 @@ struct task_struct {
 	long nice;
 	unsigned long policy;
 	struct mm_struct *mm;
-	int has_cpu, processor;
-	unsigned long cpus_allowed;
+	int has_cpu, processor;			//has_cpu表示进程正在某个CPU上运行，因此只有在该字段为0的时候，才可以接受调度
+	unsigned long cpus_allowed;		//是一个位图，相应cpu的值为1时，才会这个进程接受这个cpu的调度
+
+	//schedule
 	/*
 	 * (only the 'next' pointer fits into the cacheline, but
 	 * that's just fine.)
@@ -324,7 +326,7 @@ struct task_struct {
 	struct task_struct *next_task, *prev_task;
 	
 	struct mm_struct *active_mm;
-
+//can_schedule
 /* task state */
 	struct linux_binfmt *binfmt;  //应用程序的文件格式
 	int exit_code, exit_signal;		//供系统调用exit()以及wait4()使用

@@ -486,7 +486,7 @@ static inline void signal_wake_up(struct task_struct *t)
 	 */
 	spin_lock(&runqueue_lock);
 	if (t->has_cpu && t->processor != smp_processor_id())
-		smp_send_reschedule(t->processor);
+		smp_send_reschedule(t->processor);	//RESCHEDULE_VECTOR的中断
 	spin_unlock(&runqueue_lock);
 #endif /* CONFIG_SMP */
 }

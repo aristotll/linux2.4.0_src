@@ -256,7 +256,7 @@ bad_area_nosemaphore:
 
 no_context:
 	/* Are we prepared to handle this kernel fault?  */
-	if ((fixup = search_exception_table(regs->eip)) != 0) {
+	if ((fixup = search_exception_table(regs->eip)) != 0) {		//在系统空间中，搜索异常表
 		regs->eip = fixup;
 		return;
 	}

@@ -79,7 +79,7 @@ extern inline int verify_area(int type, const void * addr, unsigned long size)
 
 struct exception_table_entry
 {
-	unsigned long insn, fixup;
+	unsigned long insn, fixup;		//insn表示可能产生异常的指令所在的地址，而fixup则用来替换的修复地址
 };
 
 /* Returns 0 if exception not found and fixup otherwise.  */
@@ -264,7 +264,7 @@ do {									\
 do {									\
 	int __d0, __d1;							\
 	__asm__ __volatile__(						\
-		"0:	rep; movsl\n"					\
+		"0:	rep; movsl\n"					\\真正的执行拷贝，l是指拷贝4个字节\
 		"	movl %3,%0\n"					\
 		"1:	rep; movsb\n"					\
 		"2:\n"							\
@@ -280,17 +280,18 @@ do {									\
 		".previous\n"						\
 		".section __ex_table,\"a\"\n"				\
 		"	.align 4\n"					\
-		"	.long 0b,3b\n"					\
+		"	.long 0b,3b\n"					\\如果异常发生在前面标号为0处的地址，也就是指令movsl所在的地址，那么修复地址在标号为3的地址\
 		"	.long 1b,4b\n"					\
 		".previous"						\
-		: "=&c"(size), "=&D" (__d0), "=&S" (__d1)		\
-		: "r"(size & 3), "0"(size / 4), "1"(to), "2"(from)	\
+		: "=&c"(size), "=&D" (__d0), "=&S" (__d1)		\		\输出部分\
+		: "r"(size & 3), "0"(size / 4), "1"(to), "2"(from)	\	\输入部分\
 		: "memory");						\
 } while (0)
-
+//do_page_fault
 /* We let the __ versions of copy_from/to_user inline, because they're often
  * used in fast paths and have only a small space overhead.
  */
+//task_struct
 static inline unsigned long
 __generic_copy_from_user_nocheck(void *to, const void *from, unsigned long n)
 {
