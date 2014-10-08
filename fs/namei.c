@@ -218,14 +218,15 @@ int permission(struct inode * inode,int mask)
  * who will try to move it in struct inode - just leave it here.
  */
 static spinlock_t arbitration_lock = SPIN_LOCK_UNLOCKED;
+//对进行常规文件写以及内存映射之间的验证
 int get_write_access(struct inode * inode)
 {
 	spin_lock(&arbitration_lock);
-	if (atomic_read(&inode->i_writecount) < 0) {
+	if (atomic_read(&inode->i_writecount) < 0) {	//小于0时表示，通过虚存来管理文件的
 		spin_unlock(&arbitration_lock);
 		return -ETXTBSY;
 	}
-	atomic_inc(&inode->i_writecount);
+	atomic_inc(&inode->i_writecount);		//通过常规文件来管理的
 	spin_unlock(&arbitration_lock);
 	return 0;
 }
@@ -725,6 +726,7 @@ int path_init(const char *name, unsigned int flags, struct nameidata *nd)
  * needs parent already locked. Doesn't follow mounts.
  * SMP-safe.
  */
+//找到目标文件的dentry
 struct dentry * lookup_hash(struct qstr *name, struct dentry * base)
 {
 	struct dentry * dentry;
@@ -742,20 +744,20 @@ struct dentry * lookup_hash(struct qstr *name, struct dentry * base)
 	 * to use its own hash..
 	 */
 	if (base->d_op && base->d_op->d_hash) {
-		err = base->d_op->d_hash(base, name);
+		err = base->d_op->d_hash(base, name);	
 		dentry = ERR_PTR(err);
 		if (err < 0)
 			goto out;
 	}
 
-	dentry = cached_lookup(base, name, 0);
+	dentry = cached_lookup(base, name, 0);			//首先在杂凑队列中
 	if (!dentry) {
-		struct dentry *new = d_alloc(base, name);
+		struct dentry *new = d_alloc(base, name);	//创建一个新的dentry
 		dentry = ERR_PTR(-ENOMEM);
 		if (!new)
 			goto out;
 		lock_kernel();
-		dentry = inode->i_op->lookup(inode, new);
+		dentry = inode->i_op->lookup(inode, new); //在到目标文件所在的目录查找一次
 		unlock_kernel();
 		if (!dentry)
 			dentry = new;
@@ -972,10 +974,10 @@ int open_namei(const char * pathname, int flag, int mode, struct nameidata *nd)
 	/*
 	 * The simplest case - just a plain lookup.
 	 */
-	if (!(flag & O_CREAT)) {
-		if (path_init(pathname, lookup_flags(flag), nd))
+	if (!(flag & O_CREAT)) {		//如果打开的文件不存在，又不要求创建
+		if (path_init(pathname, lookup_flags(flag), nd))	//根据目标节点的路径名找到该目标节点的dentry
 			error = path_walk(pathname, nd);
-		if (error)
+		if (error)					//找不到对应的节点，也就直接返回false了
 			return error;
 		dentry = nd->dentry;
 		goto ok;
@@ -984,8 +986,8 @@ int open_namei(const char * pathname, int flag, int mode, struct nameidata *nd)
 	/*
 	 * Create - we need to know the parent.
 	 */
-	if (path_init(pathname, LOOKUP_PARENT, nd))
-		error = path_walk(pathname, nd);
+	if (path_init(pathname, LOOKUP_PARENT, nd))	//Create	//是着目标节点的父节点
+		error = path_walk(pathname, nd);		//中间节点没有，也就返回
 	if (error)
 		return error;
 
@@ -995,12 +997,12 @@ int open_namei(const char * pathname, int flag, int mode, struct nameidata *nd)
 	 * will not do.
 	 */
 	error = -EISDIR;
-	if (nd->last_type != LAST_NORM || nd->last.name[nd->last.len])
+	if (nd->last_type != LAST_NORM || nd->last.name[nd->last.len])		//找到的是某一个目录的一部分
 		goto exit;
 
-	dir = nd->dentry;
+	dir = nd->dentry;		//找到了目标节点所在目录的dentry
 	down(&dir->d_inode->i_sem);
-	dentry = lookup_hash(&nd->last, nd->dentry);
+	dentry = lookup_hash(&nd->last, nd->dentry);	//找到目标文件的dentry，有可能是新创建的
 
 do_last:
 	error = PTR_ERR(dentry);
@@ -1010,8 +1012,8 @@ do_last:
 	}
 
 	/* Negative dentry, just create the file */
-	if (!dentry->d_inode) {
-		error = vfs_create(dir->d_inode, dentry, mode);
+	if (!dentry->d_inode) {		//为空，说明是新创建的
+		error = vfs_create(dir->d_inode, dentry, mode);		//来创建文件
 		up(&dir->d_inode->i_sem);
 		dput(nd->dentry);
 		nd->dentry = dentry;
@@ -1029,20 +1031,20 @@ do_last:
 	up(&dir->d_inode->i_sem);
 
 	error = -EEXIST;
-	if (flag & O_EXCL)
+	if (flag & O_EXCL)		//存在，独占访问的
 		goto exit_dput;
 
-	if (d_mountpoint(dentry)) {
+	if (d_mountpoint(dentry)) {	
 		error = -ELOOP;
 		if (flag & O_NOFOLLOW)
 			goto exit_dput;
-		do __follow_down(&nd->mnt,&dentry); while(d_mountpoint(dentry));
+		do __follow_down(&nd->mnt,&dentry); while(d_mountpoint(dentry));	//跑到所安装的文件系统中去
 	}
 	error = -ENOENT;
 	if (!dentry->d_inode)
 		goto exit_dput;
-	if (dentry->d_inode->i_op && dentry->d_inode->i_op->follow_link)
-		goto do_link;
+	if (dentry->d_inode->i_op && dentry->d_inode->i_op->follow_link)  //判断目标文件是否是符号链接
+	  goto do_link;  //是的话，还要跳转到目标节点
 
 	dput(nd->dentry);
 	nd->dentry = dentry;
@@ -1063,6 +1065,7 @@ ok:
 	if (S_ISDIR(inode->i_mode) && (flag & FMODE_WRITE))
 		goto exit;
 
+	//还要进行权限检查
 	error = permission(inode,acc_mode);
 	if (error)
 		goto exit;
@@ -1074,7 +1077,7 @@ ok:
 	 */
 	if (S_ISFIFO(inode->i_mode) || S_ISSOCK(inode->i_mode)) {
 	    	flag &= ~O_TRUNC;
-	} else if (S_ISBLK(inode->i_mode) || S_ISCHR(inode->i_mode)) {
+	} else if (S_ISBLK(inode->i_mode) || S_ISCHR(inode->i_mode)) {  //
 		error = -EACCES;
 		if (IS_NODEV(inode))
 			goto exit;
@@ -1104,18 +1107,18 @@ ok:
 		goto exit;
 
 	if (flag & O_TRUNC) {
-		error = get_write_access(inode);
+		error = get_write_access(inode);		//这里针对文件的常规写操作和对经过内存映射的文件内容的写操作的互斥
 		if (error)
 			goto exit;
 
 		/*
 		 * Refuse to truncate files with mandatory locks held on them.
 		 */
-		error = locks_verify_locked(inode);
+		error = locks_verify_locked(inode);		//加锁技术
 		if (!error) {
 			DQUOT_INIT(inode);
 			
-			error = do_truncate(dentry, 0);
+			error = do_truncate(dentry, 0);		//则可以进行截尾了
 		}
 		put_write_access(inode);
 		if (error)
@@ -1147,7 +1150,7 @@ do_link:
 	 * are done. Procfs-like symlinks just set LAST_BIND.
 	 */
 	UPDATE_ATIME(dentry->d_inode);
-	error = dentry->d_inode->i_op->follow_link(dentry, nd);
+	error = dentry->d_inode->i_op->follow_link(dentry, nd);		//找到链接目标
 	dput(dentry);
 	if (error)
 		return error;
@@ -1156,7 +1159,7 @@ do_link:
 		goto ok;
 	}
 	error = -EISDIR;
-	if (nd->last_type != LAST_NORM)
+	if (nd->last_type != LAST_NORM)		//还要判断是否是目录
 		goto exit;
 	if (nd->last.name[nd->last.len]) {
 		putname(nd->last.name);
@@ -1169,7 +1172,7 @@ do_link:
 	}
 	dir = nd->dentry;
 	down(&dir->d_inode->i_sem);
-	dentry = lookup_hash(&nd->last, nd->dentry);
+	dentry = lookup_hash(&nd->last, nd->dentry);		//还要找到真实的目标文件节点
 	putname(nd->last.name);
 	goto do_last;
 }

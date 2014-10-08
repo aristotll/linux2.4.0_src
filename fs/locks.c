@@ -672,6 +672,7 @@ next_task:
 	return 0;
 }
 
+//检查文件是否已经加了强制锁
 int locks_mandatory_locked(struct inode *inode)
 {
 	fl_owner_t owner = current->files;
@@ -682,7 +683,7 @@ int locks_mandatory_locked(struct inode *inode)
 	 */
 	lock_kernel();
 	for (fl = inode->i_flock; fl != NULL; fl = fl->fl_next) {
-		if (!(fl->fl_flags & FL_POSIX))
+		if (!(fl->fl_flags & FL_POSIX))		//未加上FL_POSIX
 			continue;
 		if (fl->fl_owner != owner)
 			break;

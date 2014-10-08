@@ -84,6 +84,7 @@ static inline void put_unused_fd(unsigned int fd)
  * will follow.
  */
 
+//fd和file的绑定
 static inline void fd_install(unsigned int fd, struct file * file)
 {
 	struct files_struct *files = current->files;

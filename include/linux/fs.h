@@ -501,11 +501,11 @@ struct fown_struct {
 //inode
 struct file {
 	struct list_head	f_list;
-	struct dentry		*f_dentry;
-	struct vfsmount         *f_vfsmnt;
+	struct dentry		*f_dentry;	//file指针
+	struct vfsmount         *f_vfsmnt;	//指向文件所在设备安装在系统中vfsmount;
 	struct file_operations	*f_op;  //有文件操作
-	atomic_t		f_count;
-	unsigned int 		f_flags;
+	atomic_t		f_count;		//共享计数
+	unsigned int 		f_flags;	//在一个文件中当前读写位置
 	mode_t			f_mode;
 	loff_t			f_pos;
 	unsigned long 		f_reada, f_ramax, f_raend, f_ralen, f_rawin;
@@ -527,8 +527,8 @@ extern spinlock_t files_lock;
 
 extern int init_private_file(struct file *, struct dentry *, int);
 
-#define FL_POSIX	1
-#define FL_FLOCK	2
+#define FL_POSIX	1	//是通过fctnl系统调用来加锁的
+#define FL_FLOCK	2	//是一个协调锁，只针对整个文件的
 #define FL_BROKEN	4	/* broken flock() emulation */
 #define FL_ACCESS	8	/* for processes suspended by mandatory locking */
 #define FL_LOCKD	16	/* lock held by rpc.lockd */
@@ -543,6 +543,7 @@ extern int init_private_file(struct file *, struct dentry *, int);
  */
 typedef struct files_struct *fl_owner_t;
 
+//对文件区间进行相加锁设置
 struct file_lock {
 	struct file_lock *fl_next;	/* singly linked list for this inode  */
 	struct list_head fl_link;	/* doubly linked list of all locks */
@@ -550,10 +551,10 @@ struct file_lock {
 	fl_owner_t fl_owner;
 	unsigned int fl_pid;
 	wait_queue_head_t fl_wait;
-	struct file *fl_file;
+	struct file *fl_file;			//指向目标文件的file结构
 	unsigned char fl_flags;
 	unsigned char fl_type;
-	loff_t fl_start;
+	loff_t fl_start;				//fl_start和fl_end表示该文件的一个区间
 	loff_t fl_end;
 
 	void (*fl_notify)(struct file_lock *);	/* unblock callback */
@@ -906,13 +907,14 @@ extern int locks_mandatory_area(int, struct inode *, struct file *, loff_t, size
  * Candidates for mandatory locking have the setgid bit set
  * but no group execute bit -  an otherwise meaningless combination.
  */
+//是用来使用强制锁的
 #define MANDATORY_LOCK(inode) \
-	(IS_MANDLOCK(inode) && ((inode)->i_mode & (S_ISGID | S_IXGRP)) == S_ISGID)
+	(IS_MANDLOCK(inode) && ((inode)->i_mode & (S_ISGID | S_IXGRP)) == S_ISGID)	//主要是结合
 
 static inline int locks_verify_locked(struct inode *inode)
 {
-	if (MANDATORY_LOCK(inode))
-		return locks_mandatory_locked(inode);
+	if (MANDATORY_LOCK(inode))		//如果目标文件是允许枷锁的
+		return locks_mandatory_locked(inode);	//那就进一步检查是否已经加了锁
 	return 0;
 }
 

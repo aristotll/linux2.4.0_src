@@ -103,6 +103,7 @@ static int setattr_mask(unsigned int ia_valid)
 	return dn_mask;
 }
 
+//具体的截除
 int notify_change(struct dentry * dentry, struct iattr * attr)
 {
 	struct inode *inode = dentry->d_inode;
@@ -123,9 +124,9 @@ int notify_change(struct dentry * dentry, struct iattr * attr)
 	if (inode->i_op && inode->i_op->setattr) 
 		error = inode->i_op->setattr(dentry, attr);
 	else {
-		error = inode_change_ok(inode, attr);
+		error = inode_change_ok(inode, attr);		//对权限的检验
 		if (!error)
-			inode_setattr(inode, attr);
+			inode_setattr(inode, attr);			//属性的改变
 	}
 	unlock_kernel();
 	if (!error) {

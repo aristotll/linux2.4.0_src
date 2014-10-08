@@ -165,18 +165,19 @@ extern int current_is_keventd(void);
 /*
  * Open file table structure
  */
+//与打开文件有关的信息都保存在这个数据结构中
 struct files_struct {
 	atomic_t count;
 	rwlock_t file_lock;
-	int max_fds;
+	int max_fds;				//最大的打开文件号
 	int max_fdset;
 	int next_fd;
 	struct file ** fd;	/* current fd array */
 	fd_set *close_on_exec;
-	fd_set *open_fds;
-	fd_set close_on_exec_init;
-	fd_set open_fds_init;
-	struct file * fd_array[NR_OPEN_DEFAULT];
+	fd_set *open_fds;			//每打开一个文件号就就爱那个open_fds所指向位图相应位设成1
+	fd_set close_on_exec_init;	//最初位图
+	fd_set open_fds_init;		//最初位图
+	struct file * fd_array[NR_OPEN_DEFAULT];	//其下标即为打开的文件号
 };
 
 #define INIT_FILES \

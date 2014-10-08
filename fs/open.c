@@ -69,6 +69,7 @@ out:
 	return error;
 }
 
+//截尾，length表示结尾后的长度
 int do_truncate(struct dentry *dentry, loff_t length)
 {
 	struct inode *inode = dentry->d_inode;
@@ -622,7 +623,7 @@ struct file *filp_open(const char * filename, int flags, int mode)
 	if (namei_flags & O_TRUNC)
 		namei_flags |= 2;
 
-	error = open_namei(filename, namei_flags, mode, &nd);
+	error = open_namei(filename, namei_flags, mode, &nd);	//open_namei对参数有新的不同大的约定
 	if (!error)
 		return dentry_open(nd.dentry, nd.mnt, flags);
 
@@ -683,14 +684,14 @@ cleanup_dentry:
  */
 int get_unused_fd(void)
 {
-	struct files_struct * files = current->files;
+	struct files_struct * files = current->files;		//访问这个结构中files结构体
 	int fd, error;
 
   	error = -EMFILE;
 	write_lock(&files->file_lock);
 
 repeat:
- 	fd = find_next_zero_bit(files->open_fds, 
+ 	fd = find_next_zero_bit(files->open_fds,			//找到下一个空闲的fd
 				files->max_fdset, 
 				files->next_fd);
 
@@ -703,7 +704,7 @@ repeat:
 
 	/* Do we need to expand the fdset array? */
 	if (fd >= files->max_fdset) {
-		error = expand_fdset(files, fd);
+		error = expand_fdset(files, fd);	//扩充位图
 		if (!error) {
 			error = -EMFILE;
 			goto repeat;
@@ -715,7 +716,7 @@ repeat:
 	 * Check whether we need to expand the fd array.
 	 */
 	if (fd >= files->max_fds) {
-		error = expand_fd_array(files, fd);
+		error = expand_fd_array(files, fd);		//扩充数组的容量
 		if (!error) {
 			error = -EMFILE;
 			goto repeat;
@@ -723,8 +724,8 @@ repeat:
 		goto out;
 	}
 
-	FD_SET(fd, files->open_fds);
-	FD_CLR(fd, files->close_on_exec);
+	FD_SET(fd, files->open_fds);		//设置新的位图为1
+	FD_CLR(fd, files->close_on_exec);	//对对应的位图清0
 	files->next_fd = fd + 1;
 #if 1
 	/* Sanity check */
@@ -739,25 +740,26 @@ out:
 	write_unlock(&files->file_lock);
 	return error;
 }
-
+//file
+//文件打开
 asmlinkage long sys_open(const char * filename, int flags, int mode)
-{
+{	//mode表示打开的模式
 	char * tmp;
 	int fd, error;
 
 #if BITS_PER_LONG != 32
 	flags |= O_LARGEFILE;
 #endif
-	tmp = getname(filename);
+	tmp = getname(filename);		//从用户空间把文件的路径名拷贝到系统空间
 	fd = PTR_ERR(tmp);
 	if (!IS_ERR(tmp)) {
-		fd = get_unused_fd();
+		fd = get_unused_fd();	//从当前进程的打开文件表中找到一个空闲的表项
 		if (fd >= 0) {
 			struct file *f = filp_open(tmp, flags, mode);
 			error = PTR_ERR(f);
 			if (IS_ERR(f))
 				goto out_error;
-			fd_install(fd, f);
+			fd_install(fd, f);		//fd和file进行安装
 		}
 out:
 		putname(tmp);
