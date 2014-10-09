@@ -78,9 +78,9 @@ void inode_setattr(struct inode * inode, struct iattr * attr)
 		if (!in_group_p(inode->i_gid) && !capable(CAP_FSETID))
 			inode->i_mode &= ~S_ISGID;
 	}
-	mark_inode_dirty(inode);
+	mark_inode_dirty(inode);	//将她挂到所属的super_block结构的s_dirty队列中
 }
-
+//file_open
 static int setattr_mask(unsigned int ia_valid)
 {
 	unsigned long dn_mask = 0;

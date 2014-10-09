@@ -59,7 +59,7 @@ static inline void __put_unused_fd(struct files_struct *files, unsigned int fd)
 {
 	FD_CLR(fd, files->open_fds);
 	if (fd < files->next_fd)
-		files->next_fd = fd;
+		files->next_fd = fd;		//更性next_fd
 }
 
 static inline void put_unused_fd(unsigned int fd)
@@ -90,7 +90,7 @@ static inline void fd_install(unsigned int fd, struct file * file)
 	struct files_struct *files = current->files;
 	
 	write_lock(&files->file_lock);
-	if (files->fd[fd])
+	if (files->fd[fd])		//非0，说明已经有file指针
 		BUG();
 	files->fd[fd] = file;
 	write_unlock(&files->file_lock);

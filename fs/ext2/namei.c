@@ -209,6 +209,7 @@ static inline void ext2_set_de_type(struct super_block *sb,
  * adds a file entry to the specified directory.
  */
 //ext2_mknod
+//要在该文件所在的目录增加一个目录项，使新文件名和其索引节点挂上钩
 int ext2_add_entry (struct inode * dir, const char * name, int namelen,
 		    struct inode *inode)
 {
@@ -364,17 +365,17 @@ static int ext2_delete_entry (struct inode * dir,
  */
 static int ext2_create (struct inode * dir, struct dentry * dentry, int mode)
 {
-	struct inode * inode = ext2_new_inode (dir, mode);
+	struct inode * inode = ext2_new_inode (dir, mode);	//创建磁盘索引节点和内存索引节点
 	int err = PTR_ERR(inode);
 	if (IS_ERR(inode))
 		return err;
 
-	inode->i_op = &ext2_file_inode_operations;
-	inode->i_fop = &ext2_file_operations;
+	inode->i_op = &ext2_file_inode_operations;			//设置i_op
+	inode->i_fop = &ext2_file_operations;				//设置i_fop
 	inode->i_mapping->a_ops = &ext2_aops;
 	inode->i_mode = mode;
 	mark_inode_dirty(inode);
-	err = ext2_add_entry (dir, dentry->d_name.name, dentry->d_name.len, 
+	err = ext2_add_entry (dir, dentry->d_name.name, dentry->d_name.len,		//把目标文件名和索引节点好写进所在的目录
 			     inode);
 	if (err) {
 		inode->i_nlink--;
@@ -382,9 +383,12 @@ static int ext2_create (struct inode * dir, struct dentry * dentry, int mode)
 		iput (inode);
 		return err;
 	}
-	d_instantiate(dentry, inode);
+	d_instantiate(dentry, inode);	//让新文件的inode和dentry挂上钩
 	return 0;
 }
+
+//sys_close
+
 //在ext2文件系统中创建设备节点
 static int ext2_mknod (struct inode * dir, struct dentry *dentry, int mode, int rdev)
 {

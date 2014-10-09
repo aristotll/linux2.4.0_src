@@ -274,7 +274,7 @@ struct inode * ext2_new_inode (const struct inode * dir, int mode)
 		return ERR_PTR(-EPERM);
 
 	sb = dir->i_sb;
-	inode = new_inode(sb);
+	inode = new_inode(sb);		//创建新的内存索引节点
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
 
@@ -291,7 +291,7 @@ repeat:
 		for (j = 0; j < sb->u.ext2_sb.s_groups_count; j++) {
 			tmp = ext2_get_group_desc (sb, i, &bh2);
 			if (tmp &&
-			    (le16_to_cpu(tmp->bg_used_dirs_count) << 8) < 
+			    (le16_to_cpu(tmp->bg_used_dirs_count) << 8) <		//小于1/256
 			     le16_to_cpu(tmp->bg_free_inodes_count)) {
 				gdp = tmp;
 				break;
@@ -370,11 +370,14 @@ repeat:
 	if (bitmap_nr < 0)
 		goto fail;
 
-	bh = sb->u.ext2_sb.s_inode_bitmap[bitmap_nr];
-	if ((j = ext2_find_first_zero_bit ((unsigned long *) bh->b_data,
+
+	//以上代码确定了索引节点应该在哪一个块组中
+
+	bh = sb->u.ext2_sb.s_inode_bitmap[bitmap_nr];		//该块组索引节点的位图
+	if ((j = ext2_find_first_zero_bit ((unsigned long *) bh->b_data,	//寻找第一位为0
 				      EXT2_INODES_PER_GROUP(sb))) <
 	    EXT2_INODES_PER_GROUP(sb)) {
-		if (ext2_set_bit (j, bh->b_data)) {
+		if (ext2_set_bit (j, bh->b_data)) {		//从位图中分配一个索引节点
 			ext2_error (sb, "ext2_new_inode",
 				      "bit already set for inode %d", j);
 			goto repeat;
@@ -399,6 +402,8 @@ repeat:
 		}
 		goto repeat;
 	}
+
+	//i表示块组号，j表示所分配的索引节点在本块组位图中的序号
 	j += i * EXT2_INODES_PER_GROUP(sb) + 1;
 	if (j < EXT2_FIRST_INO(sb) || j > le32_to_cpu(es->s_inodes_count)) {
 		ext2_error (sb, "ext2_new_inode",
@@ -416,12 +421,12 @@ repeat:
 	es->s_free_inodes_count =
 		cpu_to_le32(le32_to_cpu(es->s_free_inodes_count) - 1);
 	mark_buffer_dirty(sb->u.ext2_sb.s_sbh);
-	sb->s_dirt = 1;
+	sb->s_dirt = 1;						//超级块中的数据调整
 	inode->i_mode = mode;
 	inode->i_uid = current->fsuid;
 	if (test_opt (sb, GRPID))
 		inode->i_gid = dir->i_gid;
-	else if (dir->i_mode & S_ISGID) {
+	else if (dir->i_mode & S_ISGID) { 	//S_ISGID设置成1
 		inode->i_gid = dir->i_gid;
 		if (S_ISDIR(mode))
 			mode |= S_ISGID;

@@ -103,18 +103,18 @@ void fput(struct file * file)
 	struct vfsmount * mnt = file->f_vfsmnt;
 	struct inode * inode = dentry->d_inode;
 
-	if (atomic_dec_and_test(&file->f_count)) {
-		locks_remove_flock(file);
+	if (atomic_dec_and_test(&file->f_count)) {	//为0时
+		locks_remove_flock(file);	//FL_FLOCK锁，这种锁一定是协调锁
 		if (file->f_op && file->f_op->release)
 			file->f_op->release(inode, file);
 		fops_put(file->f_op);
 		file->f_dentry = NULL;
 		file->f_vfsmnt = NULL;
-		if (file->f_mode & FMODE_WRITE)
-			put_write_access(inode);
-		dput(dentry);
+		if (file->f_mode & FMODE_WRITE)	//如果是要以写打开的
+			put_write_access(inode);	//也要递减计数
+		dput(dentry);			//目标文件的dentry少了一个用户
 		if (mnt)
-			mntput(mnt);
+			mntput(mnt);		//以及vfsmount也少了一个用户
 		file_list_lock();
 		list_del(&file->f_list);
 		list_add(&file->f_list, &free_list);

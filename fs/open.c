@@ -625,7 +625,7 @@ struct file *filp_open(const char * filename, int flags, int mode)
 
 	error = open_namei(filename, namei_flags, mode, &nd);	//open_namei对参数有新的不同大的约定
 	if (!error)
-		return dentry_open(nd.dentry, nd.mnt, flags);
+		return dentry_open(nd.dentry, nd.mnt, flags);	//建立起目标文件的一个上下文
 
 	return ERR_PTR(error);
 }
@@ -637,14 +637,14 @@ struct file *dentry_open(struct dentry *dentry, struct vfsmount *mnt, int flags)
 	int error;
 
 	error = -ENFILE;
-	f = get_empty_filp();
+	f = get_empty_filp();		//分配一个空闲的file数据结构
 	if (!f)
 		goto cleanup_dentry;
 	f->f_flags = flags;
 	f->f_mode = (flags+1) & O_ACCMODE;
 	inode = dentry->d_inode;
 	if (f->f_mode & FMODE_WRITE) {
-		error = get_write_access(inode);
+		error = get_write_access(inode);	//检查文件是否因为文件映射而不允许常规的写访问
 		if (error)
 			goto cleanup_file;
 	}
@@ -653,18 +653,18 @@ struct file *dentry_open(struct dentry *dentry, struct vfsmount *mnt, int flags)
 	f->f_vfsmnt = mnt;
 	f->f_pos = 0;
 	f->f_reada = 0;
-	f->f_op = fops_get(inode->i_fop);
+	f->f_op = fops_get(inode->i_fop);	//是来自inode->i_fop，来设置f_op
 	if (inode->i_sb)
-		file_move(f, &inode->i_sb->s_files);
+		file_move(f, &inode->i_sb->s_files); //从中间队列中离开队列，挂进队列的super_block->s_files
 	if (f->f_op && f->f_op->open) {
-		error = f->f_op->open(inode,f);
+		error = f->f_op->open(inode,f);		//具体文件的打开
 		if (error)
 			goto cleanup_all;
 	}
-	f->f_flags &= ~(O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC);
+	f->f_flags &= ~(O_CREAT | O_EXCL | O_NOCTTY | O_TRUNC);	//清除标志
 
 	return f;
-
+//sys_open
 cleanup_all:
 	fops_put(f->f_op);
 	if (f->f_mode & FMODE_WRITE)
@@ -771,6 +771,7 @@ out_error:
 	fd = error;
 	goto out;
 }
+//open_namei
 
 #ifndef __alpha__
 
@@ -804,8 +805,8 @@ int filp_close(struct file *filp, fl_owner_t id)
 		unlock_kernel();
 	}
 	fcntl_dirnotify(0, filp, 0);
-	locks_remove_posix(filp, id);
-	fput(filp);
+	locks_remove_posix(filp, id);	//要在关闭前，把锁解除
+	fput(filp);		//file使用计数大于0时，就递减，否则要释放
 	return retval;
 }
 
@@ -822,12 +823,12 @@ asmlinkage long sys_close(unsigned int fd)
 	write_lock(&files->file_lock);
 	if (fd >= files->max_fds)
 		goto out_unlock;
-	filp = files->fd[fd];
+	filp = files->fd[fd];	//取得filp
 	if (!filp)
 		goto out_unlock;
-	files->fd[fd] = NULL;
-	FD_CLR(fd, files->close_on_exec);
-	__put_unused_fd(files, fd);
+	files->fd[fd] = NULL;		//设置为NULL
+	FD_CLR(fd, files->close_on_exec);	//置为1，表示可用	
+	__put_unused_fd(files, fd); //释放fd
 	write_unlock(&files->file_lock);
 	return filp_close(filp, files);
 

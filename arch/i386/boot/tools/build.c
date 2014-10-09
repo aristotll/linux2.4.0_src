@@ -57,7 +57,7 @@ void die(const char * str, ...)
 	fputc('\n', stderr);
 	exit(1);
 }
-
+//filp_open
 void file_open(const char *name)
 {
 	if ((fd = open(name, O_RDONLY, 0)) < 0)

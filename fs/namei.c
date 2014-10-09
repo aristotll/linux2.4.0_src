@@ -889,13 +889,13 @@ static inline int may_delete(struct inode *dir,struct dentry *victim, int isdir)
  *  4. We can't do it if dir is immutable (done in permission())
  */
 
-//mknod时，擦好看权限
+//mknod时，查看是否能够在该目录创建文件的权限
 static inline int may_create(struct inode *dir, struct dentry *child) {
 	if (child->d_inode)
 		return -EEXIST;
 	if (IS_DEADDIR(dir))
 		return -ENOENT;
-	return permission(dir,MAY_WRITE | MAY_EXEC);
+	return permission(dir,MAY_WRITE | MAY_EXEC);	
 }
 
 /* 
@@ -920,22 +920,24 @@ static inline int lookup_flags(unsigned int f)
 	return retval;
 }
 
+//文件不存在，但是O_CREAT存在，那就要创建这个文件
 int vfs_create(struct inode *dir, struct dentry *dentry, int mode)
 {
+	//dir指向所在目录的dir，dentry是待创建文件的dentry
 	int error;
 
 	mode &= S_IALLUGO & ~current->fs->umask;
 	mode |= S_IFREG;
 
-	down(&dir->i_zombie);
-	error = may_create(dir, dentry);
+	down(&dir->i_zombie);		//提供信号量，临界区
+	error = may_create(dir, dentry);	//查看是否有创建文件的权限
 	if (error)
 		goto exit_lock;
 
 	error = -EACCES;	/* shouldn't it be ENOSYS? */
 	if (!dir->i_op || !dir->i_op->create)
 		goto exit_lock;
-
+//ext2_create
 	DQUOT_INIT(dir);
 	lock_kernel();
 	error = dir->i_op->create(dir, dentry, mode);
