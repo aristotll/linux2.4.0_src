@@ -2383,17 +2383,17 @@ retry:
 static inline struct page * __grab_cache_page(struct address_space *mapping,
 				unsigned long index, struct page **cached_page)
 {
-	struct page *page, **hash = page_hash(mapping, index);
+	struct page *page, **hash = page_hash(mapping, index);	//知道页面所在的杂凑队列的头指针
 repeat:
-	page = __find_lock_page(mapping, index, hash);
-	if (!page) {
-		if (!*cached_page) {
-			*cached_page = page_cache_alloc();
+	page = __find_lock_page(mapping, index, hash);	//在这个桶中寻找该也买你
+	if (!page) {		//如果没有找到的话
+		if (!*cached_page) {	
+			*cached_page = page_cache_alloc();	//就要通过page_cache_alloc分配一个空闲的页面
 			if (!*cached_page)
 				return NULL;
 		}
 		page = *cached_page;
-		if (add_to_page_cache_unique(page, mapping, index, hash))
+		if (add_to_page_cache_unique(page, mapping, index, hash))	//挂进相应的页面队列中
 			goto repeat;
 		*cached_page = NULL;
 	}
@@ -2419,7 +2419,10 @@ static inline void remove_suid(struct inode *inode)
 
 	/* set S_IGID if S_IXGRP is set, and always set S_ISUID */
 	mode = (inode->i_mode & S_IXGRP)*(S_ISGID/S_IXGRP) | S_ISUID;
-
+	//如果当前进程并没有设置set uid，但是目标文件的S_ISUID和S_ISGID为1，那就要将inode里的这些标志位清零
+	//
+	//
+	//
 	/* was any of the uid bits set? */
 	mode &= inode->i_mode;
 	if (mode && !capable(CAP_FSETID)) {
@@ -2443,6 +2446,7 @@ static inline void remove_suid(struct inode *inode)
  * file system has to do this all by itself, unfortunately.
  *							okir@monad.swb.de
  */
+//普通文件的写
 ssize_t
 generic_file_write(struct file *file,const char *buf,size_t count,loff_t *ppos)
 {
@@ -2464,22 +2468,22 @@ generic_file_write(struct file *file,const char *buf,size_t count,loff_t *ppos)
 	if (pos < 0)
 		goto out;
 
-	err = file->f_error;
-	if (err) {
+	err = file->f_error;	//错误
+	if (err) {		//此时再次提醒，
 		file->f_error = 0;
 		goto out;
 	}
 
 	written = 0;
 
-	if (file->f_flags & O_APPEND)
+	if (file->f_flags & O_APPEND)	//设置了该标志之后，就只能在尾段添加
 		pos = inode->i_size;
 
 	/*
 	 * Check whether we've reached the file size limit.
 	 */
 	err = -EFBIG;
-	if (limit != RLIM_INFINITY) {
+	if (limit != RLIM_INFINITY) {		//如果超过上限
 		if (pos >= limit) {
 			send_sig(SIGXFSZ, current, 0);
 			goto out;
@@ -2506,8 +2510,10 @@ generic_file_write(struct file *file,const char *buf,size_t count,loff_t *ppos)
 		 * Try to find the page in the cache. If it isn't there,
 		 * allocate a free page.
 		 */
-		offset = (pos & (PAGE_CACHE_SIZE -1)); /* Within page */
-		index = pos >> PAGE_CACHE_SHIFT;
+		offset = (pos & (PAGE_CACHE_SIZE -1)); /* Within page */	//页面中的起点
+	
+		//首先根据当前位置pos计算出本此循环中要写的缓冲页面index	
+		index = pos >> PAGE_CACHE_SHIFT;	//右移相当于除
 		bytes = PAGE_CACHE_SIZE - offset;
 		if (bytes > count) {
 			bytes = count;
@@ -2526,7 +2532,7 @@ generic_file_write(struct file *file,const char *buf,size_t count,loff_t *ppos)
 		}
 
 		status = -ENOMEM;	/* we'll assign it later anyway */
-		page = __grab_cache_page(mapping, index, &cached_page);
+		page = __grab_cache_page(mapping, index, &cached_page);	//找到对应的缓冲页面
 		if (!page)
 			break;
 
@@ -2534,7 +2540,7 @@ generic_file_write(struct file *file,const char *buf,size_t count,loff_t *ppos)
 		if (!PageLocked(page)) {
 			PAGE_BUG(page);
 		}
-
+		//ext2_prepare_write
 		status = mapping->a_ops->prepare_write(file, page, offset, offset+bytes);
 		if (status)
 			goto unlock;

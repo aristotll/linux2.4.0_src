@@ -682,6 +682,7 @@ int locks_mandatory_locked(struct inode *inode)
 	 * Search the lock list for this inode for any POSIX locks.
 	 */
 	lock_kernel();
+	//检查每一个文件的区间
 	for (fl = inode->i_flock; fl != NULL; fl = fl->fl_next) {
 		if (!(fl->fl_flags & FL_POSIX))		//未加上FL_POSIX
 			continue;

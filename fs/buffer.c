@@ -1554,6 +1554,7 @@ out:
 	return err;
 }
 
+//为一个给定的缓冲页面中记录块缓冲区做好写入的准备
 static int __block_prepare_write(struct inode *inode, struct page *page,
 		unsigned from, unsigned to, get_block_t *get_block)
 {
@@ -1566,7 +1567,7 @@ static int __block_prepare_write(struct inode *inode, struct page *page,
 
 	blocksize = inode->i_sb->s_blocksize;
 	if (!page->buffers)
-		create_empty_buffers(page, inode->i_dev, blocksize);
+		create_empty_buffers(page, inode->i_dev, blocksize);	//buffer_head还没有存在
 	head = page->buffers;
 
 	bbits = inode->i_sb->s_blocksize_bits;
@@ -1582,7 +1583,7 @@ static int __block_prepare_write(struct inode *inode, struct page *page,
 		if (block_start >= to)
 			break;
 		if (!buffer_mapped(bh)) {
-			err = get_block(inode, block, bh, 1);
+			err = get_block(inode, block, bh, 1);		//ext2_get_block
 			if (err)
 				goto out;
 			if (buffer_new(bh)) {
@@ -1604,7 +1605,7 @@ static int __block_prepare_write(struct inode *inode, struct page *page,
 			set_bit(BH_Uptodate, &bh->b_state);
 			continue; 
 		}
-		if (!buffer_uptodate(bh) &&
+		if (!buffer_uptodate(bh) &&		//记录块缓冲区的内容与设备上相关记录块的内容是否一致
 		     (block_start < from || block_end > to)) {
 			ll_rw_block(READ, 1, &bh);
 			*wait_bh++=bh;

@@ -169,7 +169,8 @@ static inline int verify_chain(Indirect *from, Indirect *to)
  * i_block would have to be negative in the very beginning, so we would not
  * get there at all.
  */
-
+//ext2_file_operations
+//根据文件内部块号记录出这个记录块在哪一个区间，需要几重映射
 static int ext2_block_to_path(struct inode *inode, long i_block, int offsets[4])
 {
 	int ptrs = EXT2_ADDR_PER_BLOCK(inode->i_sb);
@@ -502,16 +503,17 @@ changed:
  * allocations is needed - we simply release blocks and do not touch anything
  * reachable from inode.
  */
-
+//EXT2_NDIR_BLOCKS
 static int ext2_get_block(struct inode *inode, long iblock, struct buffer_head *bh_result, int create)
 {
+	//iblock表示所处理的记录块在文件中的逻辑块号，inode则指向文件的inode
 	int err = -EIO;
 	int offsets[4];
 	Indirect chain[4];
 	Indirect *partial;
 	unsigned long goal;
 	int left;
-	int depth = ext2_block_to_path(inode, iblock, offsets);
+	int depth = ext2_block_to_path(inode, iblock, offsets);		//首先根据文件内块号计算出这个记录块在哪一个区间
 
 	if (depth == 0)
 		goto out;
@@ -658,6 +660,7 @@ static int ext2_readpage(struct file *file, struct page *page)
 {
 	return block_read_full_page(page,ext2_get_block);
 }
+//准备
 static int ext2_prepare_write(struct file *file, struct page *page, unsigned from, unsigned to)
 {
 	return block_prepare_write(page,from,to,ext2_get_block);

@@ -174,11 +174,11 @@ struct ext2_group_desc
 /*
  * Constants relative to the data blocks
  */
-#define	EXT2_NDIR_BLOCKS		12
-#define	EXT2_IND_BLOCK			EXT2_NDIR_BLOCKS
-#define	EXT2_DIND_BLOCK			(EXT2_IND_BLOCK + 1)
-#define	EXT2_TIND_BLOCK			(EXT2_DIND_BLOCK + 1)
-#define	EXT2_N_BLOCKS			(EXT2_TIND_BLOCK + 1)
+#define	EXT2_NDIR_BLOCKS		12					//表示直接映射的记录块数量
+#define	EXT2_IND_BLOCK			EXT2_NDIR_BLOCKS	//一次间接寻址的下标
+#define	EXT2_DIND_BLOCK			(EXT2_IND_BLOCK + 1)	//二次间接寻址的下标
+#define	EXT2_TIND_BLOCK			(EXT2_DIND_BLOCK + 1)	//三次间接寻址的下标
+#define	EXT2_N_BLOCKS			(EXT2_TIND_BLOCK + 1)	//数组的大小
 
 /*
  * Inode flags

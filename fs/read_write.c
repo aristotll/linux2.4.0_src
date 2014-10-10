@@ -141,23 +141,26 @@ asmlinkage ssize_t sys_read(unsigned int fd, char * buf, size_t count)
 	return ret;
 }
 
+//写
 asmlinkage ssize_t sys_write(unsigned int fd, const char * buf, size_t count)
 {
 	ssize_t ret;
 	struct file * file;
 
 	ret = -EBADF;
-	file = fget(fd);
+	file = fget(fd);		//根据fd，打开file
 	if (file) {
-		if (file->f_mode & FMODE_WRITE) {
+		if (file->f_mode & FMODE_WRITE) {	//判断标志位
 			struct inode *inode = file->f_dentry->d_inode;
-			ret = locks_verify_area(FLOCK_VERIFY_WRITE, inode, file,
+			ret = locks_verify_area(FLOCK_VERIFY_WRITE, inode, file,	//对fops开始的count个字节要对写加上强制锁
 				file->f_pos, count);
 			if (!ret) {
 				ssize_t (*write)(struct file *, const char *, size_t, loff_t *);
 				ret = -EINVAL;
 				if (file->f_op && (write = file->f_op->write) != NULL)
-					ret = write(file, buf, count, &file->f_pos);
+					ret = write(file, buf, count, &file->f_pos);	//写入
+				//对于目录和文件是不一样阿；如文件，ext2_file_operations，对于目录，ext2_dir_operations
+				//对于普通文件，generic_file_write
 			}
 		}
 		if (ret > 0)

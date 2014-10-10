@@ -361,20 +361,28 @@ struct address_space_operations {
 	/* Unfortunately this kludge is needed for FIBMAP. Don't use it */
 	int (*bmap)(struct address_space *, long);
 };
-
+//inode
 //page中的mapping就是指向address_space的
 struct address_space {
+	//维护缓冲页面的队列
 	struct list_head	clean_pages;	/* list of clean pages */ //干净
 	struct list_head	dirty_pages;	/* list of dirty pages */ //脏
 	struct list_head	locked_pages;	/* list of locked pages */	//暂时锁定在内存中不让换出的页面
 	unsigned long		nrpages;	/* number of total pages */
 	struct address_space_operations *a_ops;	/* methods */
-	struct inode		*host;		/* owner: inode, block_device */
+	struct inode		*host;		/* owner: inode, block_device */	//
 	struct vm_area_struct	*i_mmap;	/* list of private mappings */
+										   
+   //文件映射到某些进程的用户空间，i_mmap指向一串虚存空间，vm_area_struct
+
+	//每一个数据结构代表着该文件在某个进程中的空间的映射
+	//其中apos就很重要了，给出了缓冲页面与具体文件系统的设备层之间的关系和操作
+
+	
 	struct vm_area_struct	*i_mmap_shared; /* list of shared mappings */
 	spinlock_t		i_shared_lock;  /* and spinlock protecting it */
 };
-
+//generic_file_write
 //swapper_space
 
 struct block_device {
@@ -417,8 +425,13 @@ struct inode {
 	struct super_block	*i_sb;
 	wait_queue_head_t	i_wait;
 	struct file_lock	*i_flock;
+
 	struct address_space	*i_mapping;
+
+
+
 	struct address_space	i_data;	
+	
 	struct dquot		*i_dquot[MAXQUOTAS];
 	struct pipe_inode_info	*i_pipe;
 	struct block_device	*i_bdev;
@@ -508,11 +521,11 @@ struct file {
 	unsigned int 		f_flags;	//在一个文件中当前读写位置
 	mode_t			f_mode;
 	loff_t			f_pos;
-	unsigned long 		f_reada, f_ramax, f_raend, f_ralen, f_rawin;
+	unsigned long 		f_reada, f_ramax, f_raend, f_ralen, f_rawin;	//反映了预读上下文
 	struct fown_struct	f_owner;
 	unsigned int		f_uid, f_gid;
 	int			f_error;
-
+//sys_write
 	unsigned long		f_version;
 
 	/* needed for tty driver, and maybe others */
@@ -913,7 +926,7 @@ extern int locks_mandatory_area(int, struct inode *, struct file *, loff_t, size
 
 static inline int locks_verify_locked(struct inode *inode)
 {
-	if (MANDATORY_LOCK(inode))		//如果目标文件是允许枷锁的
+	if (MANDATORY_LOCK(inode))		//如果目标文件是允许加锁的
 		return locks_mandatory_locked(inode);	//那就进一步检查是否已经加了锁
 	return 0;
 }
