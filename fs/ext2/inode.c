@@ -123,8 +123,8 @@ static int ext2_alloc_block (struct inode * inode, unsigned long goal, int *err)
 }
 
 typedef struct {
-	u32	*p;
-	u32	key;
+	u32	*p;		//指向表项
+	u32	key;	//指向值
 	struct buffer_head *bh;
 } Indirect;
 
@@ -173,11 +173,11 @@ static inline int verify_chain(Indirect *from, Indirect *to)
 //根据文件内部块号记录出这个记录块在哪一个区间，需要几重映射
 static int ext2_block_to_path(struct inode *inode, long i_block, int offsets[4])
 {
-	int ptrs = EXT2_ADDR_PER_BLOCK(inode->i_sb);
-	int ptrs_bits = EXT2_ADDR_PER_BLOCK_BITS(inode->i_sb);
+	int ptrs = EXT2_ADDR_PER_BLOCK(inode->i_sb);			//ptrs是256
+	int ptrs_bits = EXT2_ADDR_PER_BLOCK_BITS(inode->i_sb);	//8
 	const long direct_blocks = EXT2_NDIR_BLOCKS,
-		indirect_blocks = ptrs,
-		double_blocks = (1 << (ptrs_bits * 2));
+		indirect_blocks = ptrs,						//256
+		double_blocks = (1 << (ptrs_bits * 2));		//256*256
 	int n = 0;
 
 	if (i_block < 0) {
@@ -185,7 +185,7 @@ static int ext2_block_to_path(struct inode *inode, long i_block, int offsets[4])
 	} else if (i_block < direct_blocks) {
 		offsets[n++] = i_block;
 	} else if ( (i_block -= direct_blocks) < indirect_blocks) {
-		offsets[n++] = EXT2_IND_BLOCK;
+		offsets[n++] = EXT2_IND_BLOCK;		//保存文件内部的位移
 		offsets[n++] = i_block;
 	} else if ((i_block -= indirect_blocks) < double_blocks) {
 		offsets[n++] = EXT2_DIND_BLOCK;
@@ -231,6 +231,7 @@ static int ext2_block_to_path(struct inode *inode, long i_block, int offsets[4])
  *	or when it reads all @depth-1 indirect blocks successfully and finds
  *	the whole chain, all way to the data (returns %NULL, *err == 0).
  */
+//逐层读入用于映射的块
 static inline Indirect *ext2_get_branch(struct inode *inode,
 					int depth,
 					int *offsets,
@@ -244,15 +245,15 @@ static inline Indirect *ext2_get_branch(struct inode *inode,
 
 	*err = 0;
 	/* i_data is not going away, no lock needed */
-	add_chain (chain, NULL, inode->u.ext2_i.i_data + *offsets);
+	add_chain (chain, NULL, inode->u.ext2_i.i_data + *offsets);		//建立映射的表项
 	if (!p->key)
 		goto no_block;
 	while (--depth) {
-		bh = bread(dev, le32_to_cpu(p->key), size);
+		bh = bread(dev, le32_to_cpu(p->key), size);		//读入
 		if (!bh)
 			goto failure;
 		/* Reader: pointers */
-		if (!verify_chain(chain, p))
+		if (!verify_chain(chain, p))				//
 			goto changed;
 		add_chain(++p, bh, (u32*)bh->b_data + *++offsets);
 		/* Reader: end */
@@ -520,7 +521,7 @@ static int ext2_get_block(struct inode *inode, long iblock, struct buffer_head *
 
 	lock_kernel();
 reread:
-	partial = ext2_get_branch(inode, depth, offsets, chain, &err);
+	partial = ext2_get_branch(inode, depth, offsets, chain, &err);	//从磁盘上逐层读入用于间接映射的记录块
 
 	/* Simplest case - block found, no allocation needed */
 	if (!partial) {

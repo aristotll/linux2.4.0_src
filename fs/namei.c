@@ -1667,7 +1667,7 @@ exit:
 
 	return error;
 }
-
+//ext2_link
 /*
  * The worst of all namespace operations - renaming directory. "Perverted"
  * doesn't even start to describe it. Somebody in UCB had a heck of a trip...

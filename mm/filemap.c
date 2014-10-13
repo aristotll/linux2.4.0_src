@@ -1022,7 +1022,7 @@ void do_generic_file_read(struct file * filp, loff_t *ppos, read_descriptor_t * 
 	struct page *cached_page;
 	int reada_ok;
 	int error;
-	int max_readahead = get_max_readahead(inode);
+	int max_readahead = get_max_readahead(inode);	//预读
 
 	cached_page = NULL;
 	index = *ppos >> PAGE_CACHE_SHIFT;
@@ -1251,7 +1251,7 @@ ssize_t generic_file_read(struct file * filp, char * buf, size_t count, loff_t *
 		retval = 0;
 
 		if (count) {
-			read_descriptor_t desc;
+			read_descriptor_t desc;		//读操作描述符结构
 
 			desc.written = 0;
 			desc.count = count;

@@ -61,6 +61,7 @@ static inline loff_t llseek(struct file *file, loff_t offset, int origin)
 	return retval;
 }
 
+//origin的值只能是0，1，2；
 asmlinkage off_t sys_lseek(unsigned int fd, off_t offset, unsigned int origin)
 {
 	off_t retval;
@@ -81,7 +82,7 @@ asmlinkage off_t sys_lseek(unsigned int fd, off_t offset, unsigned int origin)
 bad:
 	return retval;
 }
-
+//ext2_file_lseek
 #if !defined(__alpha__)
 asmlinkage long sys_llseek(unsigned int fd, unsigned long offset_high,
 			   unsigned long offset_low, loff_t * result,

@@ -55,8 +55,8 @@ static loff_t ext2_file_lseek(
 	}
 	if (offset<0)
 		return -EINVAL;
-	if (((unsigned long long) offset >> 32) != 0) {
-		if (offset > ext2_max_sizes[EXT2_BLOCK_SIZE_BITS(inode->i_sb)])
+	if (((unsigned long long) offset >> 32) != 0) {	//对offset的检查
+		if (offset > ext2_max_sizes[EXT2_BLOCK_SIZE_BITS(inode->i_sb)])	//不能超过文件大小的上界
 			return -EINVAL;
 	} 
 	if (offset != file->f_pos) {
@@ -66,7 +66,7 @@ static loff_t ext2_file_lseek(
 	}
 	return offset;
 }
-
+//sys_dup
 /*
  * Called when an inode is released. Note that this is different
  * from ext2_file_open: open gets called at every open, but release

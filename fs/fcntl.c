@@ -129,7 +129,7 @@ out_putf:
 	fput(file);
 	return ret;
 }
-
+//sys_link
 asmlinkage long sys_dup2(unsigned int oldfd, unsigned int newfd)
 {
 	int err = -EBADF;
