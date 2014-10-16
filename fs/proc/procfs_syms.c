@@ -22,12 +22,13 @@ EXPORT_SYMBOL(proc_root_driver);
 
 static DECLARE_FSTYPE(proc_fs_type, "proc", proc_read_super, FS_SINGLE);
 
+//初始化init_proc_fs
 static int __init init_proc_fs(void)
 {
-	int err = register_filesystem(&proc_fs_type);
+	int err = register_filesystem(&proc_fs_type);	//注册文件系统,主要是用来做登记的
 	if (!err) {
-		proc_mnt = kern_mount(&proc_fs_type);
-		err = PTR_ERR(proc_mnt);
+		proc_mnt = kern_mount(&proc_fs_type);		//将一个具体的proc文件系统安装到系统中的/proc节点上
+		err = PTR_ERR(proc_mnt);		
 		if (IS_ERR(proc_mnt))
 			unregister_filesystem(&proc_fs_type);
 		else

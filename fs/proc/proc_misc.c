@@ -509,11 +509,11 @@ void __init proc_misc_init(void)
 		char *name;
 		int (*read_proc)(char*,char**,off_t,int,int*,void*);
 	} *p, simple_ones[] = {
-		{"loadavg",     loadavg_read_proc},
-		{"uptime",	uptime_read_proc},
+		{"loadavg",     loadavg_read_proc},	//将每一个元素将/proc目录中的一个文件节点名与一个函数挂上钩
+		{"uptime",	uptime_read_proc},			
 		{"meminfo",	meminfo_read_proc},
 		{"version",	version_read_proc},
-		{"cpuinfo",	cpuinfo_read_proc},
+		{"cpuinfo",	cpuinfo_read_proc},		//cpuinfo_read_proc从内核中收集有关的信息，并生成该文件的内容
 #ifdef CONFIG_PROC_HARDWARE
 		{"hardware",	hardware_read_proc},
 #endif
@@ -548,10 +548,12 @@ void __init proc_misc_init(void)
 		{NULL,}
 	};
 	for (p = simple_ones; p->name; p++)
-		create_proc_read_entry(p->name, 0, NULL, p->read_proc, NULL);
+		create_proc_read_entry(p->name, 0, NULL, p->read_proc, NULL);	//创建起每一个inode结构以及proc_dir_entry
 
 	/* And now for trickier ones */
-	entry = create_proc_entry("kmsg", S_IRUSR, &proc_root);
+	entry = create_proc_entry("kmsg", S_IRUSR, &proc_root);	
+	//分别kmsg的节点，主要是因为权限的原因，只有文件属主或特权用户
+	
 	if (entry)
 		entry->proc_fops = &proc_kmsg_operations;
 	proc_root_kcore = create_proc_entry("kcore", S_IRUSR, NULL);

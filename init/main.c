@@ -506,9 +506,9 @@ static void __init smp_init(void)
 static void __init smp_init(void)
 {
 	/* Get other processors into their bootup holding patterns. */
-	smp_boot_cpus();
-	smp_threads_ready=1;
-	smp_commence();
+	smp_boot_cpus();		//依次启动系统中的各个cpu
+	smp_threads_ready=1;	//等待统一的起跑命令
+	smp_commence();			//完成了所有次CPU的启动以后就可以通过smp_commence发出一个命令
 }		
 
 #endif

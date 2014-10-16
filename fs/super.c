@@ -303,6 +303,8 @@ static LIST_HEAD(vfsmntlist);
  *	support for such beasts we'll have to change prototype.
  */
 
+//do_mount
+
 static struct vfsmount *add_vfsmnt(struct nameidata *nd,
 				struct dentry *root,
 				const char *dev_name)
@@ -738,7 +740,7 @@ static struct super_block * read_super(kdev_t dev, struct block_device *bdev,
 	sema_init(&s->s_dquot.dqoff_sem, 1);
 	s->s_dquot.flags = 0;
 	lock_super(s);
-	if (!type->read_super(s, data, silent))  //ext2_read_super
+	if (!type->read_super(s, data, silent))  //ext2_read_super	//¿¿¿/proc¿¿¿¿¿¿¿¿¿proc_read_super
 		goto out_fail;
 	unlock_super(s);
 	/* tell bdcache that we are going to keep this one */
@@ -870,6 +872,7 @@ static struct super_block *get_sb_nodev(struct file_system_type *fs_type,
 	return ERR_PTR(error);
 }
 
+
 static struct super_block *get_sb_single(struct file_system_type *fs_type,
 	int flags, void *data)
 {
@@ -940,7 +943,7 @@ static void kill_super(struct super_block *sb, int umount_root)
  * Alters the mount flags of a mounted file system. Only the mount point
  * is used as a reference - file system type and the device are ignored.
  */
-
+//proc_root_init
 static int do_remount_sb(struct super_block *sb, int flags, char *data)
 {
 	int retval;
@@ -970,9 +973,10 @@ static int do_remount_sb(struct super_block *sb, int flags, char *data)
 	return 0;
 }
 
+//¿¿¿¿¿¿proc¿¿¿¿¿¿¿¿¿¿¿/proc¿¿¿
 struct vfsmount *kern_mount(struct file_system_type *type)
 {
-	kdev_t dev = get_unnamed_dev();
+	kdev_t dev = get_unnamed_dev();		//super_block¿¿¿
 	struct super_block *sb;
 	struct vfsmount *mnt;
 	if (!dev)
@@ -1377,7 +1381,7 @@ long do_mount(char * dev_name, char * dir_name, char *type_page,
 	else if (fstype->fs_flags & FS_REQUIRES_DEV)	//has phsical device
 		sb = get_sb_bdev(fstype, dev_name, flags, data_page);
 	else if (fstype->fs_flags & FS_SINGLE)	//shared super_block,in some virtual filesystems
-		sb = get_sb_single(fstype, flags, data_page);
+		sb = get_sb_single(fstype, flags, data_page);	//¿¿¿/proc
 	else
 		sb = get_sb_nodev(fstype, flags, data_page);	//in somd virtual filesystem
 

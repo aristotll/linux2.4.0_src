@@ -22,9 +22,10 @@ struct proc_dir_entry *proc_net, *proc_bus, *proc_root_fs, *proc_root_driver;
 struct proc_dir_entry *proc_sys_root;
 #endif
 
+//所有的节点全都要在运行时加以创建的
 void __init proc_root_init(void)
 {
-	proc_misc_init();
+	proc_misc_init();			//叶节点
 	proc_net = proc_mkdir("net", 0);
 #ifdef CONFIG_SYSVIPC
 	proc_mkdir("sysvipc", 0);
@@ -38,7 +39,7 @@ void __init proc_root_init(void)
 	/* just give it a mountpoint */
 	proc_mkdir("openprom", 0);
 #endif
-	proc_tty_init();
+	proc_tty_init();			//一颗子树，还有目录
 #ifdef CONFIG_PROC_DEVICETREE
 	proc_device_tree_init();
 #endif
@@ -96,13 +97,14 @@ static struct inode_operations proc_root_inode_operations = {
 /*
  * This is the root "inode" in the /proc tree..
  */
+///proc文件系统的根节点
 struct proc_dir_entry proc_root = {
 	low_ino:	PROC_ROOT_INO, 
 	namelen:	5, 
 	name:		"/proc",
 	mode:		S_IFDIR | S_IRUGO | S_IXUGO, 
 	nlink:		2, 
-	proc_iops:	&proc_root_inode_operations, 
+	proc_iops:	&proc_root_inode_operations,	
 	proc_fops:	&proc_root_operations,
 	parent:		&proc_root,
 };

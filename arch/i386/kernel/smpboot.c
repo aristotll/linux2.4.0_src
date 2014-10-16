@@ -550,14 +550,14 @@ static void __init do_boot_cpu (int apicid)
 	 * We can't use kernel_thread since we must avoid to
 	 * reschedule the child.
 	 */
-	if (fork_by_hand() < 0)
+	if (fork_by_hand() < 0)				//为目标进程创建一个缺省进程，来维护自己的上下文
 		panic("failed fork for CPU %d", cpu);
 
 	/*
 	 * We remove it from the pidhash and the runqueue
 	 * once we got the process:
 	 */
-	idle = init_task.prev_task;
+	idle = init_task.prev_task;		//取得刚刚链入的线程
 	if (!idle)
 		panic("No idle process for CPU %d", cpu);
 
@@ -565,14 +565,14 @@ static void __init do_boot_cpu (int apicid)
 	x86_cpu_to_apicid[cpu] = apicid;
 	x86_apicid_to_cpu[apicid] = cpu;
 	idle->has_cpu = 1; /* we schedule the first task manually */
-	idle->thread.eip = (unsigned long) start_secondary;
+	idle->thread.eip = (unsigned long) start_secondary;		//所有的次CPU进入的地址
 
-	del_from_runqueue(idle);
-	unhash_process(idle);
-	init_tasks[cpu] = idle;
+	del_from_runqueue(idle);	//从就绪队列删除
+	unhash_process(idle);		//从杂凑队列删除
+	init_tasks[cpu] = idle;		//安装到对应的指针数组中
 
 	/* start_eip had better be page-aligned! */
-	start_eip = setup_trampoline();
+	start_eip = setup_trampoline();		//还要设置好一个跳板程序
 
 	/* So we see what's up   */
 	printk("Booting processor %d/%d eip %lx\n", cpu, apicid, start_eip);
@@ -583,7 +583,7 @@ static void __init do_boot_cpu (int apicid)
 	 * the targeted processor.
 	 */
 
-	atomic_set(&init_deasserted, 0);
+	atomic_set(&init_deasserted, 0);	//目标CPU初始化以后，就设置成1
 
 	Dprintk("Setting warm reset code and vector.\n");
 
@@ -691,7 +691,7 @@ static void __init do_boot_cpu (int apicid)
 
 		/* Boot on the stack */
 		/* Kick the second */
-		apic_write_around(APIC_ICR, APIC_DM_STARTUP
+		apic_write_around(APIC_ICR, APIC_DM_STARTUP		//分别将start_eip中的启动地址写入APIC的控制寄存器APIC_ICR中
 					| (start_eip >> 12));
 
 		/*
@@ -840,7 +840,7 @@ void __init smp_boot_cpus(void)
 	 */
 
 	for (apicid = 0; apicid < NR_CPUS; apicid++) {
-		x86_apicid_to_cpu[apicid] = -1;
+		x86_apicid_to_cpu[apicid] = -1;		//用于逻辑CPU号到物理CPU号的转换
 		prof_counter[apicid] = 1;
 		prof_old_multiplier[apicid] = 1;
 		prof_multiplier[apicid] = 1;
@@ -849,7 +849,7 @@ void __init smp_boot_cpus(void)
 	/*
 	 * Setup boot CPU information
 	 */
-	smp_store_cpu_info(0); /* Final full version of the data */
+	smp_store_cpu_info(0); /* Final full version of the data */	//从CPU收集很多的信息
 	printk("CPU%d: ", 0);
 	print_cpu_info(&cpu_data[0]);
 
@@ -868,7 +868,7 @@ void __init smp_boot_cpus(void)
 	 * If we couldnt find an SMP configuration at boot time,
 	 * get out of here now!
 	 */
-	if (!smp_found_config) {
+	if (!smp_found_config) {		//为0，表示只有一个CPU
 		printk(KERN_NOTICE "SMP motherboard not detected. Using dummy APIC emulation.\n");
 #ifndef CONFIG_VISWS
 		io_apic_irqs = 0;
@@ -891,7 +891,7 @@ void __init smp_boot_cpus(void)
 	/*
 	 * If we couldn't find a local APIC, then get out of here now!
 	 */
-	if (APIC_INTEGRATED(apic_version[boot_cpu_id]) &&
+	if (APIC_INTEGRATED(apic_version[boot_cpu_id]) &&		//检查CPU是否有内部的APIC
 	    !test_bit(X86_FEATURE_APIC, boot_cpu_data.x86_capability)) {
 		printk(KERN_ERR "BIOS bug, local APIC #%d not detected!...\n",
 			boot_cpu_id);
@@ -931,11 +931,11 @@ void __init smp_boot_cpus(void)
 	 */
 	Dprintk("CPU present map: %lx\n", phys_cpu_present_map);
 
-	for (apicid = 0; apicid < NR_CPUS; apicid++) {
+	for (apicid = 0; apicid < NR_CPUS; apicid++) {		//启动次CPU
 		/*
 		 * Don't even attempt to start the boot CPU!
 		 */
-		if (apicid == boot_cpu_id)
+		if (apicid == boot_cpu_id)		//等于主CPU时就继续
 			continue;
 
 		if (!(phys_cpu_present_map & (1 << apicid)))
@@ -1018,6 +1018,6 @@ void __init smp_boot_cpus(void)
 		synchronize_tsc_bp();
 
 smp_done:
-	zap_low_mappings();
+	zap_low_mappings();			//将页面映射到目录中低区
 }
 

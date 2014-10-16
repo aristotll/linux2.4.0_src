@@ -192,6 +192,7 @@ static int xlate_proc_name(const char *name,
 
 static unsigned char proc_alloc_map[PROC_NDYNAMIC / 8];
 
+///proc文件系统分配索引节点号
 static int make_inode_number(void)
 {
 	int i = find_first_zero_bit((void *) proc_alloc_map, PROC_NDYNAMIC);
@@ -347,15 +348,17 @@ static struct inode_operations proc_dir_inode_operations = {
 	lookup:		proc_lookup,
 };
 
+//登记到父节点的子队列中
 static int proc_register(struct proc_dir_entry * dir, struct proc_dir_entry * dp)
 {
+	//dir指向父节点，dp指向要登记的节点
 	int	i;
 	
-	i = make_inode_number();
+	i = make_inode_number();		//分配索引节点号
 	if (i < 0)
 		return -EAGAIN;
 	dp->low_ino = i;
-	dp->next = dir->subdir;
+	dp->next = dir->subdir;		//指向父节点的子队列
 	dp->parent = dir;
 	dir->subdir = dp;
 	if (S_ISDIR(dp->mode)) {
@@ -494,6 +497,10 @@ out:
 	return ent;
 }
 
+
+//proc_tty_init
+
+
 struct proc_dir_entry *create_proc_entry(const char *name, mode_t mode,
 					 struct proc_dir_entry *parent)
 {
@@ -501,7 +508,7 @@ struct proc_dir_entry *create_proc_entry(const char *name, mode_t mode,
 	const char *fn = name;
 	int len;
 
-	if (!parent && xlate_proc_name(name, &parent, &fn) != 0)
+	if (!parent && xlate_proc_name(name, &parent, &fn) != 0)	//拼接名称
 		goto out;
 	len = strlen(fn);
 
@@ -528,7 +535,7 @@ struct proc_dir_entry *create_proc_entry(const char *name, mode_t mode,
 	}
 	ent->mode = mode;
 
-	proc_register(parent, ent);
+	proc_register(parent, ent);		//登记到父节点的/proc结构
 	
 out:
 	return ent;

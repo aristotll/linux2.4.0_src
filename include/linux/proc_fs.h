@@ -50,6 +50,9 @@ typedef	int (write_proc_t)(struct file *file, const char *buffer,
 			   unsigned long count, void *data);
 typedef int (get_info_t)(char *, char **, off_t, int);
 
+//proc_root
+
+//proc中的proc_dir_entry
 struct proc_dir_entry {
 	unsigned short low_ino;
 	unsigned short namelen;

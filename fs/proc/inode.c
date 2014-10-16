@@ -136,14 +136,14 @@ struct inode * proc_get_inode(struct super_block * sb, int ino,
 	/*
 	 * Increment the use count so the dir entry can't disappear.
 	 */
-	de_get(de);
+	de_get(de);					//递增/proc的引用计数
 #if 1
 /* shouldn't ever happen */
 if (de && de->deleted)
 printk("proc_iget: using deleted entry %s, count=%d\n", de->name, atomic_read(&de->count));
 #endif
 
-	inode = iget(sb, ino);
+	inode = iget(sb, ino);		//查找或获取新的inode结构
 	if (!inode)
 		goto out_fail;
 	
@@ -177,7 +177,9 @@ out_fail:
 	de_put(de);
 	goto out;
 }			
-
+//proc_dir_entry
+//add_vfsmnt
+//读入超级块，实际也就是生成超级块
 struct super_block *proc_read_super(struct super_block *s,void *data, 
 				    int silent)
 {
