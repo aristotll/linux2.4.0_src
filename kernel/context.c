@@ -69,7 +69,7 @@ static int context_thread(void *dummy)
 	DECLARE_WAITQUEUE(wait, curtask);
 	struct k_sigaction sa;
 
-	daemonize();
+	daemonize();		//变成一个守护神
 	strcpy(curtask->comm, "keventd");
 	keventd_running = 1;
 	keventd_task = curtask;

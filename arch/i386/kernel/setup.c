@@ -331,6 +331,7 @@ static struct resource rom_resources[MAXROMS] = {
 
 #define romsignature(x) (*(unsigned short *)(x) == 0xaa55)
 
+//¿¿BIOS¿¿¿ROM¿¿¿¿¿¿¿¿ROM¿¿¿¿¿¿¿¿¿¿¿¿
 static void __init probe_roms(void)
 {
 	int roms = 1;
@@ -344,7 +345,7 @@ static void __init probe_roms(void)
 		romstart = bus_to_virt(base);
 		if (!romsignature(romstart))
 			continue;
-		request_resource(&iomem_resource, rom_resources + roms);
+		request_resource(&iomem_resource, rom_resources + roms);	//BIOS¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿
 		roms++;
 		break;
 	}
@@ -474,7 +475,7 @@ static int __init copy_e820_map(struct e820entry * biosmap, int nr_map)
 		 * Not right. Fix it up.
 		 */
 		if (type == E820_RAM) {
-			if (start < 0x100000ULL && end > 0xA0000ULL) {
+			if (start < 0x100000ULL && end > 0xA0000ULL) {	//¿¿¿¿¿0xA0000ULL¿1MB¿¿¿¿¿¿
 				if (start < 0xA0000ULL)
 					add_memory_region(start, 0xA0000ULL-start, type);
 				if (end <= 0x100000ULL)
@@ -504,7 +505,7 @@ void __init setup_memory_region(void)
 	 * Otherwise fake a memory map; one section from 0k->640k,
 	 * the next section from 1mb->appropriate_mem_k
 	 */
-	if (copy_e820_map(E820_MAP, E820_MAP_NR) < 0) {
+	if (copy_e820_map(E820_MAP, E820_MAP_NR) < 0) { //¿¿¿¿¿¿¿¿¿¿¿¿
 		unsigned long mem_size;
 
 		/* compare results from other methods and take the greater */
@@ -605,10 +606,13 @@ void __init setup_arch(char **cmdline_p)
 	visws_get_board_type_and_rev();
 #endif
 
- 	ROOT_DEV = to_kdev_t(ORIG_ROOT_DEV);
- 	drive_info = DRIVE_INFO;
+ 	ROOT_DEV = to_kdev_t(ORIG_ROOT_DEV);	//¿¿¿¿¿¿¿¿¿¿¿¿
+ 	
+	//¿¿¿¿¿¿BIOS
+	drive_info = DRIVE_INFO;
  	screen_info = SCREEN_INFO;
 	apm_info.bios = APM_BIOS_INFO;
+	
 	if( SYS_DESC_TABLE.length != 0 ) {
 		MCA_bus = SYS_DESC_TABLE.table[3] &0x2;
 		machine_id = SYS_DESC_TABLE.table[0];
@@ -622,11 +626,13 @@ void __init setup_arch(char **cmdline_p)
 	rd_prompt = ((RAMDISK_FLAGS & RAMDISK_PROMPT_FLAG) != 0);
 	rd_doload = ((RAMDISK_FLAGS & RAMDISK_LOAD_FLAG) != 0);
 #endif
-	setup_memory_region();
+	setup_memory_region();		//¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿
 
 	if (!MOUNT_ROOT_RDONLY)
 		root_mountflags &= ~MS_RDONLY;
-	init_mm.start_code = (unsigned long) &_text;
+
+	//¿¿¿swapper¿¿¿¿¿¿¿¿¿
+	init_mm.start_code = (unsigned long) &_text;	//¿init_mm¿¿¿
 	init_mm.end_code = (unsigned long) &_etext;
 	init_mm.end_data = (unsigned long) &_edata;
 	init_mm.brk = (unsigned long) &_end;
@@ -654,7 +660,7 @@ void __init setup_arch(char **cmdline_p)
 	 * partially used pages are not usable - thus
 	 * we are rounding upwards:
 	 */
-	start_pfn = PFN_UP(__pa(&_end));
+	start_pfn = PFN_UP(__pa(&_end));	//¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿
 
 	/*
 	 * Find the highest page frame number we have available
@@ -665,7 +671,7 @@ void __init setup_arch(char **cmdline_p)
 		/* RAM? */
 		if (e820.map[i].type != E820_RAM)
 			continue;
-		start = PFN_UP(e820.map[i].addr);
+		start = PFN_UP(e820.map[i].addr);	//¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿
 		end = PFN_DOWN(e820.map[i].addr + e820.map[i].size);
 		if (start >= end)
 			continue;
@@ -676,8 +682,10 @@ void __init setup_arch(char **cmdline_p)
 	/*
 	 * Determine low and high memory ranges:
 	 */
-	max_low_pfn = max_pfn;
-	if (max_low_pfn > MAXMEM_PFN) {
+	max_low_pfn = max_pfn;			
+	//max_pfn¿¿¿¿¿¿¿¿¿¿¿RAM¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿
+	
+	if (max_low_pfn > MAXMEM_PFN) {		//
 		max_low_pfn = MAXMEM_PFN;
 #ifndef CONFIG_HIGHMEM
 		/* Maximum memory usable is what is directly addressable */
@@ -709,7 +717,7 @@ void __init setup_arch(char **cmdline_p)
 	/*
 	 * Initialize the boot-time allocator (with low memory only):
 	 */
-	bootmap_size = init_bootmem(start_pfn, max_low_pfn);
+	bootmap_size = init_bootmem(start_pfn, max_low_pfn);	//¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿
 
 	/*
 	 * Register fully available low RAM pages with the bootmem allocator.
@@ -759,6 +767,8 @@ void __init setup_arch(char **cmdline_p)
 	 * enabling clean reboots, SMP operation, laptop functions.
 	 */
 	reserve_bootmem(0, PAGE_SIZE);
+
+	//paging_init
 
 #ifdef CONFIG_SMP
 	/*
@@ -2195,6 +2205,9 @@ int get_cpuinfo(char * buffer)
 }
 
 static unsigned long cpu_initialized __initdata = 0;
+
+
+//init_modules
 
 /*
  * cpu_init() initializes state that is per-CPU. Some data is already

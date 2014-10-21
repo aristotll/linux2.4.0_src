@@ -41,6 +41,7 @@ unsigned long __init bootmem_bootmap_pages (unsigned long pages)
 /*
  * Called once to set up the allocator itself.
  */
+//start为0，mapstart的值是上一层函数init_bootmem中的start，即内核映像以上第一个页面的起点
 static unsigned long __init init_bootmem_core (pg_data_t *pgdat,
 	unsigned long mapstart, unsigned long start, unsigned long end)
 {
@@ -63,6 +64,8 @@ static unsigned long __init init_bootmem_core (pg_data_t *pgdat,
 
 	return mapsize;
 }
+
+//setup_arch
 
 /*
  * Marks a particular physical memory range as unallocatable. Usable RAM
@@ -280,9 +283,10 @@ unsigned long __init free_all_bootmem_node (pg_data_t *pgdat)
 	return(free_all_bootmem_core(pgdat));
 }
 
+//为整个物理内存页面管理机制的建立做好准备
 unsigned long __init init_bootmem (unsigned long start, unsigned long pages)
 {
-	max_low_pfn = pages;
+	max_low_pfn = pages;		//物理内存顶点所在的页面号
 	min_low_pfn = start;
 	return(init_bootmem_core(&contig_page_data, start, 0, pages));
 }

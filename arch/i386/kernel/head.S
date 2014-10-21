@@ -311,6 +311,7 @@ check_x87:
  *  are enabled elsewhere, when we can be relatively
  *  sure everything is ok.
  */
+//设置初始状态的中断向量表，中断描述符表
 setup_idt:
 	lea ignore_int,%edx
 	movl $(__KERNEL_CS << 16),%eax

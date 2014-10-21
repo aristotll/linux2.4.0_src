@@ -413,6 +413,9 @@ static void __init pagetable_init (void)
 #endif
 }
 
+
+//resource
+
 void __init zap_low_mappings (void)
 {
 	int i;
@@ -441,9 +444,10 @@ void __init zap_low_mappings (void)
  * This routines also unmaps the page at virtual kernel address 0, so
  * that we can trap those pesky NULL-reference errors in the kernel.
  */
+//建立起页面映射机制，并建立起内存页面管理机制
 void __init paging_init(void)
 {
-	pagetable_init();
+	pagetable_init();	//建立起页面映射目录和页面映射表
 
 	__asm__( "movl %%ecx,%%cr3\n" ::"c"(__pa(swapper_pg_dir)));
 

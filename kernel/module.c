@@ -232,12 +232,16 @@ void free_module(struct module *, int tag_freed);
 
 void __init init_modules(void)
 {
+	//初始化可安装模块机制
 	kernel_module.nsyms = __stop___ksymtab - __start___ksymtab;
 
 #ifdef __alpha__
 	__asm__("stq $29,%0" : "=m"(kernel_module.gp));
 #endif
 }
+
+
+//fork_init
 
 /*
  * Copy the name of a module from user space.

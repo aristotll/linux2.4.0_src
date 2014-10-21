@@ -70,11 +70,16 @@ void __init fork_init(unsigned long mempages)
 	 * value: the thread structures can take up at most half
 	 * of memory.
 	 */
+							// 8k / 4k /2
 	max_threads = mempages / (THREAD_SIZE/PAGE_SIZE) / 2;
+	//根据物理内存的大小，计算出允许穿见线程的数量，一个线程占用一个页面
 
 	init_task.rlim[RLIMIT_NPROC].rlim_cur = max_threads/2;
 	init_task.rlim[RLIMIT_NPROC].rlim_max = max_threads/2;
 }
+
+//cpu_idle
+
 
 /* Protects next_safe and last_pid. */
 spinlock_t lastpid_lock = SPIN_LOCK_UNLOCKED;

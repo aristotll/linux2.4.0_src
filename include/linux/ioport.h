@@ -12,12 +12,16 @@
  * Resources are tree-like, allowing
  * nesting etc..
  */
+//资源
 struct resource {
-	const char *name;
-	unsigned long start, end;
-	unsigned long flags;
+	const char *name;			//名称
+	unsigned long start, end;	//开头，结尾
+	unsigned long flags;		
 	struct resource *parent, *sibling, *child;
 };
+
+
+//probe_roms
 
 struct resource_list {
 	struct resource_list *next;

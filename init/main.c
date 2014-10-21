@@ -296,6 +296,7 @@ kdev_t __init name_to_kdev_t(char *line)
 	return to_kdev_t(base + simple_strtoul(line,NULL,base?10:16));
 }
 
+//比如选择项为root=
 static int __init root_dev_setup(char *line)
 {
 	int i;
@@ -315,6 +316,12 @@ static int __init root_dev_setup(char *line)
 
 __setup("root=", root_dev_setup);
 
+//root_dev_setup
+//
+//cpu_init
+
+
+//将传下来的字符串，进行比对，如果有，就执行对应的函数
 static int __init checksetup(char *line)
 {
 	struct kernel_param *p;
@@ -427,6 +434,7 @@ __setup("quiet", quiet_kernel);
  * This routine also checks for options meant for the kernel.
  * These options are not given to init - they are for internal kernel use only.
  */
+//进行命令的全面分析
 static void __init parse_options(char *line)
 {
 	char *next,*quote;
@@ -528,9 +536,9 @@ asmlinkage void __init start_kernel(void)
  * enable them
  */
 	lock_kernel();
-	printk(linux_banner);
-	setup_arch(&command_line);
-	printk("Kernel command line: %s\n", saved_command_line);
+	printk(linux_banner);			//显示内核版本信息
+	setup_arch(&command_line);		//系统结构的设置
+	printk("Kernel command line: %s\n", saved_command_line);	
 	parse_options(command_line);
 	trap_init();	//异常向量初始化
 	init_IRQ();		//中断向量初始化
@@ -720,8 +728,8 @@ static void __init do_basic_setup(void)
 	else mount_initrd =0;
 #endif
 
-	start_context_thread();
-	do_initcalls();
+	start_context_thread();		//系统创建的第二个内核线程
+	do_initcalls();				//调用初始化段
 
 	/* .. filesystems .. */
 	filesystem_setup();
@@ -734,7 +742,7 @@ static void __init do_basic_setup(void)
 #endif
 
 	/* Mount the root filesystem.. */
-	mount_root();
+	mount_root();			//安装根设备
 
 	mount_devfs_fs ();
 

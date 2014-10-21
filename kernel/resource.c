@@ -63,6 +63,9 @@ int get_resource_list(struct resource *root, char *buf, int size)
 	return retval;
 }	
 
+
+//parse_options
+
 /* Return the conflict entry if you can't request it */
 static struct resource * __request_resource(struct resource *root, struct resource *new)
 {
@@ -111,6 +114,7 @@ static int __release_resource(struct resource *old)
 	return -EINVAL;
 }
 
+//
 int request_resource(struct resource *root, struct resource *new)
 {
 	struct resource *conflict;

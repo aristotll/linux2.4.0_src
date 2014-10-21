@@ -453,10 +453,14 @@ struct task_struct {
 #define MAX_COUNTER	(20*HZ/100)
 #define DEF_NICE	(0)
 
+
+//setup_idt
+
 /*
  *  INIT_TASK is used to set up the first task table, touch at
  * your own risk!. Base=0, limit=0x1fffff (=2MB)
  */
+//为第一个进程做准备，进程名叫做swapper
 #define INIT_TASK(tsk)	\
 {									\
     state:		0,						\

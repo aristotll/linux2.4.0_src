@@ -120,6 +120,7 @@ static void poll_idle (void)
  * low exit latency (ie sit in a loop waiting for
  * somebody to say that they'd like to reschedule)
  */
+//cpu空转
 void cpu_idle (void)
 {
 	/* endless idle loop with no priority at all */
@@ -130,10 +131,10 @@ void cpu_idle (void)
 	while (1) {
 		void (*idle)(void) = pm_idle;
 		if (!idle)
-			idle = default_idle;
-		while (!current->need_resched)
+			idle = default_idle;			//打开中断
+		while (!current->need_resched)		//等待变成1，跳出循环，执行其他的进程请求
 			idle();
-		schedule();
+		schedule();							//主CPU会优先得到执行init的权利
 		check_pgt_cache();
 	}
 }

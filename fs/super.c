@@ -1475,6 +1475,7 @@ out1:
 	return retval;
 }
 
+//¿¿¿¿¿
 void __init mount_root(void)
 {
 	struct file_system_type * fs_type;
@@ -1544,7 +1545,7 @@ skip_nfs:
 	}
 #endif
 
-	devfs_make_root (root_device_name);
+	devfs_make_root (root_device_name);		//¿¿¿root=¿¿¿¿¿
 	handle = devfs_find_handle (NULL, ROOT_DEVICE_NAME,
 	                            MAJOR (ROOT_DEV), MINOR (ROOT_DEV),
 				    DEVFS_SPECIAL_BLK, 1);
@@ -1563,7 +1564,7 @@ skip_nfs:
 	if (!ROOT_DEV)
 		panic("I have no root and I want to scream");
 
-	bdev = bdget(kdev_t_to_nr(ROOT_DEV));
+	bdev = bdget(kdev_t_to_nr(ROOT_DEV));		//¿¿¿¿¿¿¿¿¿¿¿block_device
 	if (!bdev)
 		panic(__FUNCTION__ ": unable to allocate root device");
 	bdev->bd_op = devfs_get_ops (handle);
@@ -1589,13 +1590,13 @@ skip_nfs:
 	}
 
 	check_disk_change(ROOT_DEV);
-	sb = get_super(ROOT_DEV);
+	sb = get_super(ROOT_DEV);			//¿¿¿¿¿
 	if (sb) {
 		fs_type = sb->s_type;
 		goto mount_it;
 	}
 
-	read_lock(&file_systems_lock);
+	read_lock(&file_systems_lock);		//¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿¿
 	for (fs_type = file_systems ; fs_type ; fs_type = fs_type->next) {
   		if (!(fs_type->fs_flags & FS_REQUIRES_DEV))
   			continue;
