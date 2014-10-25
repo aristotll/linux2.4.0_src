@@ -498,6 +498,9 @@ void __kill_fasync(struct fasync_struct *fa, int sig, int band)
 	}
 }
 
+
+//unix_dgram_connect
+
 void kill_fasync(struct fasync_struct **fp, int sig, int band)
 {
 	read_lock(&fasync_lock);
