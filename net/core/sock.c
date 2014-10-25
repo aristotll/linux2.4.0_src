@@ -602,7 +602,7 @@ void sk_free(struct sock *sk)
 	if (atomic_read(&sk->omem_alloc))
 		printk(KERN_DEBUG "sk_free: optmem leakage (%d bytes) detected.\n", atomic_read(&sk->omem_alloc));
 
-	kmem_cache_free(sk_cachep, sk);
+	kmem_cache_free(sk_cachep, sk);		//释放给定的skb
 }
 
 void __init sk_init(void)
@@ -657,9 +657,9 @@ void sock_rfree(struct sk_buff *skb)
 struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force, int priority)
 {
 	if (force || atomic_read(&sk->wmem_alloc) < sk->sndbuf) {
-		struct sk_buff * skb = alloc_skb(size, priority);
+		struct sk_buff * skb = alloc_skb(size, priority);		//创建一个skb
 		if (skb) {
-			skb_set_owner_w(skb, sk);
+			skb_set_owner_w(skb, sk);		//对分配的sock进行初始化
 			return skb;
 		}
 	}
@@ -1080,12 +1080,13 @@ void sock_def_error_report(struct sock *sk)
 	read_unlock(&sk->callback_lock);
 }
 
+//每当一个报文挂入到一个sock结构的receive_queue队列中以后，就要回调该函数
 void sock_def_readable(struct sock *sk, int len)
 {
 	read_lock(&sk->callback_lock);
-	if (sk->sleep && waitqueue_active(sk->sleep))
+	if (sk->sleep && waitqueue_active(sk->sleep))		//唤醒可能在睡眠中的等待的server进程
 		wake_up_interruptible(sk->sleep);
-	sk_wake_async(sk,1,POLL_IN);
+	sk_wake_async(sk,1,POLL_IN);			//给可能已经在队列fasync_list中挂上号的进程发送信号
 	read_unlock(&sk->callback_lock);
 }
 
@@ -1116,6 +1117,7 @@ void sock_def_destruct(struct sock *sk)
 
 void sock_init_data(struct socket *sock, struct sock *sk)
 {
+	//初始化队列
 	skb_queue_head_init(&sk->receive_queue);
 	skb_queue_head_init(&sk->write_queue);
 	skb_queue_head_init(&sk->error_queue);
@@ -1140,6 +1142,7 @@ void sock_init_data(struct socket *sock, struct sock *sk)
 	sk->dst_lock		=	RW_LOCK_UNLOCKED;
 	sk->callback_lock	=	RW_LOCK_UNLOCKED;
 
+	//设置相应的函数
 	sk->state_change	=	sock_def_wakeup;
 	sk->data_ready		=	sock_def_readable;
 	sk->write_space		=	sock_def_write_space;

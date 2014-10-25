@@ -136,7 +136,7 @@ struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags, int noblock, 
 	long timeo;
 
 	/* Caller is allowed not to check sk->err before skb_recv_datagram() */
-	error = sock_error(sk);
+	error = sock_error(sk);		//首先检查上一次调用这个函数以后至今是否发生了出错，同时将其清0
 	if (error)
 		goto no_packet;
 
@@ -149,7 +149,7 @@ struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags, int noblock, 
 		   Look at current nfs client by the way...
 		   However, this function was corrent in any case. 8)
 		 */
-		if (flags & MSG_PEEK)
+		if (flags & MSG_PEEK)		//表示只是查看一下是否有报文接收，而不真的接收
 		{
 			unsigned long cpu_flags;
 
@@ -169,7 +169,8 @@ struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags, int noblock, 
 		if (!timeo)
 			goto no_packet;
 
-	} while (wait_for_packet(sk, err, &timeo) == 0);
+	} while (wait_for_packet(sk, err, &timeo) == 0);	//队列中有报文接收，那就成功返回
+	//否则就通过wait_for_packet睡眠等待
 
 	return NULL;
 

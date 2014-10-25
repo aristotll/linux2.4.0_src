@@ -48,6 +48,7 @@ struct nf_ct_info {
 };
 #endif
 
+//receive_queue和write_queue以及error_queue的通用的队列头结构
 struct sk_buff_head {
 	/* These two members must be first. */
 	struct sk_buff	* next;

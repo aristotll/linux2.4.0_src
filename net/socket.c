@@ -113,8 +113,8 @@ static ssize_t sock_writev(struct file *file, const struct iovec *vector,
 
 static struct file_operations socket_file_ops = {
 	llseek:		sock_lseek,
-	read:		sock_read,
-	write:		sock_write,
+	read:		sock_read,			//度
+	write:		sock_write,			//写
 	poll:		sock_poll,
 	ioctl:		sock_ioctl,
 	mmap:		sock_mmap,
@@ -336,7 +336,7 @@ static int sock_map_fd(struct socket *sock)
 	 *	Find a file descriptor suitable for return to the user. 
 	 */
 
-	fd = get_unused_fd();
+	fd = get_unused_fd();		//首先申请一个空闲的fd
 	if (fd >= 0) {
 		struct file *file = get_empty_filp();
 
@@ -351,7 +351,7 @@ static int sock_map_fd(struct socket *sock)
 		this.len = strlen(name);
 		this.hash = sock->inode->i_ino;
 
-		file->f_dentry = d_alloc(sock_mnt->mnt_sb->s_root, &this);
+		file->f_dentry = d_alloc(sock_mnt->mnt_sb->s_root, &this);	//创建一个dentry
 		if (!file->f_dentry) {
 			put_filp(file);
 			put_unused_fd(fd);
@@ -359,11 +359,13 @@ static int sock_map_fd(struct socket *sock)
 			goto out;
 		}
 		file->f_dentry->d_op = &sockfs_dentry_operations;
-		d_add(file->f_dentry, sock->inode);
+		d_add(file->f_dentry, sock->inode);		//将所在的dentry和inode相互关联起来
 		file->f_vfsmnt = mntget(sock_mnt);
 
 		sock->file = file;
-		file->f_op = sock->inode->i_fop = &socket_file_ops;
+		file->f_op = sock->inode->i_fop = &socket_file_ops;	
+		//并将对应的操作设置成sockfs_dentry_operations的操作
+		
 		file->f_mode = 3;
 		file->f_flags = O_RDWR;
 		file->f_pos = 0;
@@ -392,6 +394,7 @@ extern __inline__ struct socket *socki_lookup(struct inode *inode)
  *	On a success the socket object pointer is returned.
  */
 
+//根据定义的fd找到对应的socket
 struct socket *sockfd_lookup(int fd, int *err)
 {
 	struct file *file;
@@ -441,11 +444,12 @@ struct socket *sock_alloc(void)
 	if (!inode)
 		return NULL;
 
+	//inode中有一个成分u，会根据不同的文件类型解释成不同的部分
 	inode->i_sb = sock_mnt->mnt_sb;
-	sock = socki_lookup(inode);
+	sock = socki_lookup(inode);				//socket结构其实是inode结构的一部分
 
-	inode->i_mode = S_IFSOCK|S_IRWXUGO;
-	inode->i_sock = 1;
+	inode->i_mode = S_IFSOCK|S_IRWXUGO;		//同时将inode的i_mode设置成1
+	inode->i_sock = 1;						//并将i_sock也设成1
 	inode->i_uid = current->fsuid;
 	inode->i_gid = current->fsgid;
 
@@ -498,18 +502,24 @@ void sock_release(struct socket *sock)
 	sock->file=NULL;
 }
 
+//数据发送
 int sock_sendmsg(struct socket *sock, struct msghdr *msg, int size)
 {
 	int err;
 	struct scm_cookie scm;
 
-	err = scm_send(sock, msg, &scm);
+	err = scm_send(sock, msg, &scm);		//是对发送者身份以及附加控制信息的处理
 	if (err >= 0) {
 		err = sock->ops->sendmsg(sock, msg, size, &scm);
 		scm_destroy(&scm);
 	}
+	
+	//unix_dgram_sendmsg
+	
 	return err;
 }
+
+//scm_cookie
 
 int sock_recvmsg(struct socket *sock, struct msghdr *msg, int size, int flags)
 {
@@ -573,6 +583,7 @@ static ssize_t sock_read(struct file *file, char *ubuf,
  *	is readable by the user process.
  */
 
+//socket数据的接收和发送
 static ssize_t sock_write(struct file *file, const char *ubuf,
 			  size_t size, loff_t *ppos)
 {
@@ -599,7 +610,7 @@ static ssize_t sock_write(struct file *file, const char *ubuf,
 	iov.iov_base=(void *)ubuf;
 	iov.iov_len=size;
 	
-	return sock_sendmsg(sock, &msg, size);
+	return sock_sendmsg(sock, &msg, size);		//发送数据
 }
 
 int sock_readv_writev(int type, struct inode * inode, struct file * file,
@@ -625,7 +636,7 @@ int sock_readv_writev(int type, struct inode * inode, struct file * file,
 	if (sock->type == SOCK_SEQPACKET)
 		msg.msg_flags |= MSG_EOR;
 
-	return sock_sendmsg(sock, &msg, size);
+	return sock_sendmsg(sock, &msg, size);		//发送报文
 }
 
 static ssize_t sock_readv(struct file *file, const struct iovec *vector,
@@ -649,6 +660,10 @@ static ssize_t sock_writev(struct file *file, const struct iovec *vector,
 	return sock_readv_writev(VERIFY_READ, file->f_dentry->d_inode,
 				 file, vector, count, tot_len);
 }
+
+
+//msghdr
+
 
 /*
  *	With an ioctl arg may well be a user mode pointer, but we don't know what to do
@@ -810,7 +825,7 @@ int sock_wake_async(struct socket *sock, int how, int band)
 	return 0;
 }
 
-
+//创建一个socket数据结构
 int sock_create(int family, int type, int protocol, struct socket **res)
 {
 	int i;
@@ -819,7 +834,7 @@ int sock_create(int family, int type, int protocol, struct socket **res)
 	/*
 	 *	Check protocol is in range
 	 */
-	if(family<0 || family>=NPROTO)
+	if(family<0 || family>=NPROTO)	//检查和处理参数的范围
 		return -EAFNOSUPPORT;
 
 	/* Compatibility.
@@ -843,6 +858,7 @@ int sock_create(int family, int type, int protocol, struct socket **res)
 	 * requested real, full-featured networking support upon configuration.
 	 * Otherwise module support will break!
 	 */
+	//查看对应的family域的插口的驱动是否创建，尚未创建的话，那就来创建
 	if (net_families[family]==NULL)
 	{
 		char module_name[30];
@@ -863,7 +879,7 @@ int sock_create(int family, int type, int protocol, struct socket **res)
  *	default.
  */
 
-	if (!(sock = sock_alloc())) 
+	if (!(sock = sock_alloc())) //分配一个socket进行初始化
 	{
 		printk(KERN_WARNING "socket: no more sockets\n");
 		i = -ENFILE;		/* Not exactly a match, but its the
@@ -873,6 +889,8 @@ int sock_create(int family, int type, int protocol, struct socket **res)
 
 	sock->type  = type;
 
+	//unix_create
+	//调用对应网络域的函数指针
 	if ((i = net_families[family]->create(sock, protocol)) < 0) 
 	{
 		sock_release(sock);
@@ -886,16 +904,18 @@ out:
 	return i;
 }
 
+
+//创建插口
 asmlinkage long sys_socket(int family, int type, int protocol)
 {
 	int retval;
 	struct socket *sock;
 
-	retval = sock_create(family, type, protocol, &sock);
+	retval = sock_create(family, type, protocol, &sock);	//创建一个sock
 	if (retval < 0)
 		goto out;
 
-	retval = sock_map_fd(sock);
+	retval = sock_map_fd(sock);		//将file和socket相关联
 	if (retval < 0)
 		goto out_release;
 
@@ -982,20 +1002,25 @@ out:
  *	the protocol layer (having also checked the address is ok).
  */
 
+//指定插口的地址
 asmlinkage long sys_bind(int fd, struct sockaddr *umyaddr, int addrlen)
 {
 	struct socket *sock;
 	char address[MAX_SOCK_ADDR];
 	int err;
 
-	if((sock = sockfd_lookup(fd,&err))!=NULL)
+	if((sock = sockfd_lookup(fd,&err))!=NULL)		//根据对应的id找到对应的socket
 	{
-		if((err=move_addr_to_kernel(umyaddr,addrlen,address))>=0)
+		if((err=move_addr_to_kernel(umyaddr,addrlen,address))>=0)	//将数据结构从用户空间复制过来
 			err = sock->ops->bind(sock, (struct sockaddr *)address, addrlen);
+		//根据对应的socket中的ops去绑定地址，比如unix_stream_ops和unix_dgram_ops中的unix_bind
+		
 		sockfd_put(sock);
 	}			
 	return err;
 }
+
+//unix_bind
 
 
 /*
@@ -1004,6 +1029,7 @@ asmlinkage long sys_bind(int fd, struct sockaddr *umyaddr, int addrlen)
  *	ready for listening.
  */
 
+//设定server插口
 asmlinkage long sys_listen(int fd, int backlog)
 {
 	struct socket *sock;
@@ -1012,7 +1038,7 @@ asmlinkage long sys_listen(int fd, int backlog)
 	if ((sock = sockfd_lookup(fd, &err)) != NULL) {
 		if ((unsigned) backlog > SOMAXCONN)
 			backlog = SOMAXCONN;
-		err=sock->ops->listen(sock, backlog);
+		err=sock->ops->listen(sock, backlog);		//unix_listen
 		sockfd_put(sock);
 	}
 	return err;
@@ -1031,29 +1057,33 @@ asmlinkage long sys_listen(int fd, int backlog)
  *	clean when we restucture accept also.
  */
 
+//接受连接
 asmlinkage long sys_accept(int fd, struct sockaddr *upeer_sockaddr, int *upeer_addrlen)
 {
 	struct socket *sock, *newsock;
 	int err, len;
 	char address[MAX_SOCK_ADDR];
 
-	sock = sockfd_lookup(fd, &err);
+	sock = sockfd_lookup(fd, &err);			//先找到server插口
 	if (!sock)
 		goto out;
 
 	err = -EMFILE;
-	if (!(newsock = sock_alloc())) 
+	if (!(newsock = sock_alloc()))			//然后分配一个新的socket
 		goto out_put;
 
 	newsock->type = sock->type;
 	newsock->ops = sock->ops;
 
+	//有连接，unix_accept
 	err = sock->ops->accept(sock, newsock, sock->file->f_flags);
 	if (err < 0)
 		goto out_release;
 
 	if (upeer_sockaddr) {
-		if(newsock->ops->getname(newsock, (struct sockaddr *)address, &len, 2)<0) {
+		if(newsock->ops->getname(newsock, (struct sockaddr *)address, &len, 2)<0) {	//获取对方的插口地址
+			//unix_getname
+
 			err = -ECONNABORTED;
 			goto out_release;
 		}
@@ -1064,7 +1094,8 @@ asmlinkage long sys_accept(int fd, struct sockaddr *upeer_sockaddr, int *upeer_a
 
 	/* File flags are not inherited via accept() unlike another OSes. */
 
-	if ((err = sock_map_fd(newsock)) < 0)
+	if ((err = sock_map_fd(newsock)) < 0)	
+	  //为新创建的插口分配一个打开文件号，以及相应的file结构，并返回这个打开的文件号
 		goto out_release;
 
 out_put:
@@ -1090,6 +1121,7 @@ out_release:
  *	include the -EINPROGRESS status for such sockets.
  */
 
+//有连接模式的插口和无连接模式的插口都可以调用该函数
 asmlinkage long sys_connect(int fd, struct sockaddr *uservaddr, int addrlen)
 {
 	struct socket *sock;
@@ -1104,6 +1136,9 @@ asmlinkage long sys_connect(int fd, struct sockaddr *uservaddr, int addrlen)
 		goto out_put;
 	err = sock->ops->connect(sock, (struct sockaddr *) address, addrlen,
 				 sock->file->f_flags);
+	
+	//unix_stream_connect
+
 out_put:
 	sockfd_put(sock);
 out:
@@ -1238,7 +1273,7 @@ asmlinkage long sys_recvfrom(int fd, void * ubuf, size_t size, unsigned flags,
 	msg.msg_namelen=MAX_SOCK_ADDR;
 	if (sock->file->f_flags & O_NONBLOCK)
 		flags |= MSG_DONTWAIT;
-	err=sock_recvmsg(sock, &msg, size, flags);
+	err=sock_recvmsg(sock, &msg, size, flags);		//接收主题
 
 	if(err >= 0 && addr != NULL && msg.msg_namelen)
 	{
@@ -1517,6 +1552,7 @@ static unsigned char nargs[18]={AL(0),AL(3),AL(3),AL(3),AL(2),AL(3),
  *  it is set by the callees. 
  */
 
+//库函数socket相关的统一入口
 asmlinkage long sys_socketcall(int call, unsigned long *args)
 {
 	unsigned long a[6];
@@ -1535,12 +1571,15 @@ asmlinkage long sys_socketcall(int call, unsigned long *args)
 	
 	switch(call) 
 	{
+		//创建插口
 		case SYS_SOCKET:
 			err = sys_socket(a0,a1,a[2]);
 			break;
 		case SYS_BIND:
 			err = sys_bind(a0,(struct sockaddr *)a1, a[2]);
 			break;
+
+		//插口连接的建立
 		case SYS_CONNECT:
 			err = sys_connect(a0, (struct sockaddr *)a1, a[2]);
 			break;
@@ -1556,12 +1595,18 @@ asmlinkage long sys_socketcall(int call, unsigned long *args)
 		case SYS_GETPEERNAME:
 			err = sys_getpeername(a0, (struct sockaddr *)a1, (int *)a[2]);
 			break;
+
+		//创建无名插口
 		case SYS_SOCKETPAIR:
 			err = sys_socketpair(a0,a1, a[2], (int *)a[3]);
 			break;
+
+		//无连接模式下报文的放送和接收
 		case SYS_SEND:
 			err = sys_send(a0, (void *)a1, a[2], a[3]);
 			break;
+
+		//无连接模式下的报文发送
 		case SYS_SENDTO:
 			err = sys_sendto(a0,(void *)a1, a[2], a[3],
 					 (struct sockaddr *)a[4], a[5]);
@@ -1573,6 +1618,8 @@ asmlinkage long sys_socketcall(int call, unsigned long *args)
 			err = sys_recvfrom(a0, (void *)a1, a[2], a[3],
 					   (struct sockaddr *)a[4], (int *)a[5]);
 			break;
+
+		//关闭插口
 		case SYS_SHUTDOWN:
 			err = sys_shutdown(a0,a1);
 			break;

@@ -22,7 +22,7 @@ struct unix_address
 	atomic_t	refcnt;
 	int		len;
 	unsigned	hash;
-	struct sockaddr_un name[0];
+	struct sockaddr_un name[0];		//具体地址的存放
 };
 
 struct unix_skb_parms

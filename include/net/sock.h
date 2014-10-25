@@ -105,10 +105,10 @@ struct atm_vcc;
 
 /* The AF_UNIX specific socket options */
 struct unix_opt {
-	struct unix_address	*addr;
+	struct unix_address	*addr;			//其中addr指向一个unix_address结构，将一个插口bind到某一个地址
 	struct dentry *		dentry;
 	struct vfsmount *	mnt;
-	struct semaphore	readsem;
+	struct semaphore	readsem;		//有一个内核信号量，代码中的init_MUTEX将这个信号量的值初始化成1
 	struct sock *		other;
 	struct sock **		list;
 	struct sock *		gc_tree;
@@ -117,6 +117,7 @@ struct unix_opt {
 	wait_queue_head_t	peer_wait;
 };
 
+//sys_socket
 
 /* Once the IPX ncpd patches are in these are going into protinfo. */
 #if defined(CONFIG_IPX) || defined(CONFIG_IPX_MODULE)
@@ -1134,8 +1135,8 @@ sk_dst_check(struct sock *sk, u32 cookie)
 static inline void skb_set_owner_w(struct sk_buff *skb, struct sock *sk)
 {
 	sock_hold(sk);
-	skb->sk = sk;
-	skb->destructor = sock_wfree;
+	skb->sk = sk;		//这里将sk指向为server方分配的sock数据结构
+	skb->destructor = sock_wfree;	//同时将报文缓冲区中的函数指针指向数据缓冲区在内的实际大小
 	atomic_add(skb->truesize, &sk->wmem_alloc);
 }
 

@@ -14,9 +14,11 @@ typedef unsigned short	sa_family_t;
  *	1003.1g requires sa_family_t and that sa_data is char.
  */
  
+//socket
 struct sockaddr {
-	sa_family_t	sa_family;	/* address family, AF_xxx	*/
+	sa_family_t	sa_family;	/* address family, AF_xxx	*/			//域
 	char		sa_data[14];	/* 14 bytes of protocol address	*/
+	//对于Unix域，可以是文件名；也可以是4个字节的地址，和端口号
 };
 
 struct linger {
@@ -30,14 +32,15 @@ struct linger {
  *	belong in an obscure libc emulation or the bin.
  */
  
+//组装成一个报头
 struct msghdr {
-	void	*	msg_name;	/* Socket name			*/
-	int		msg_namelen;	/* Length of name		*/
+	void	*	msg_name;	/* Socket name			*/			//对应于sys_sendto()的参数addr
+	int		msg_namelen;	/* Length of name		*/			//以及addr_len
 	struct iovec *	msg_iov;	/* Data blocks			*/
 	__kernel_size_t	msg_iovlen;	/* Number of blocks		*/
-	void 	*	msg_control;	/* Per protocol magic (eg BSD file descriptor passing) */
+	void 	*	msg_control;	/* Per protocol magic (eg BSD file descriptor passing) */	//指向附加的控制信息
 	__kernel_size_t	msg_controllen;	/* Length of cmsg list */
-	unsigned	msg_flags;
+	unsigned	msg_flags;										//以及flag
 };
 
 /*

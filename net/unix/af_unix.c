@@ -428,6 +428,7 @@ static int unix_release_sock (unix_socket *sk, int embrion)
 	return 0;
 }
 
+//unix域的接口监听
 static int unix_listen(struct socket *sock, int backlog)
 {
 	int err;
@@ -437,19 +438,25 @@ static int unix_listen(struct socket *sock, int backlog)
 	if (sock->type!=SOCK_STREAM)
 		goto out;			/* Only stream sockets accept */
 	err = -EINVAL;
-	if (!sk->protinfo.af_unix.addr)
+	if (!sk->protinfo.af_unix.addr)	//而且已经绑定了插口地址
 		goto out;			/* No listens on an unbound socket */
 	unix_state_wlock(sk);
-	if (sk->state != TCP_CLOSE && sk->state != TCP_LISTEN)
+	if (sk->state != TCP_CLOSE && sk->state != TCP_LISTEN)	//有限状态机，TCP_CLOSE表示插口刚刚建立
+	//TCP_LISTEN表示该插口已经设置成了server插口，但尚未建立连接
+
 		goto out_unlock;
 	if (backlog > sk->max_ack_backlog)
-		wake_up_interruptible_all(&sk->protinfo.af_unix.peer_wait);
-	sk->max_ack_backlog=backlog;
+		wake_up_interruptible_all(&sk->protinfo.af_unix.peer_wait);	
+	//当新的队列容量有所扩大时，还要唤醒可能正在睡眠中等待着将连击请求进入队列的进程
+	
+	sk->max_ack_backlog=backlog;	//设置最大队列长度
 	sk->state=TCP_LISTEN;
 	/* set credentials so connect can copy them */
-	sk->peercred.pid = current->pid;
-	sk->peercred.uid = current->euid;
-	sk->peercred.gid = current->egid;
+	sk->peercred.pid = current->pid;	//设置进程号
+	sk->peercred.uid = current->euid;	//设置用户号
+	sk->peercred.gid = current->egid;	//设置组号
+	//可将这些信息送回给请求连接的一方，从而让其知道是谁接受了连接请求
+	//
 	err = 0;
 
 out_unlock:
@@ -458,12 +465,17 @@ out:
 	return err;
 }
 
+
+//sys_accept
+
 extern struct proto_ops unix_stream_ops;
 extern struct proto_ops unix_dgram_ops;
 
+//sk_buff_head
+
 static struct sock * unix_create1(struct socket *sock)
 {
-	struct sock *sk;
+	struct sock *sk;		//创建与socket一一对应的sock
 
 	if (atomic_read(&unix_nr_socks) >= 2*files_stat.max_files)
 		return NULL;
@@ -477,12 +489,14 @@ static struct sock * unix_create1(struct socket *sock)
 
 	atomic_inc(&unix_nr_socks);
 
-	sock_init_data(sock,sk);
+	sock_init_data(sock,sk);			//然后就是sock的初始化
 
 	sk->write_space		=	unix_write_space;
 
 	sk->max_ack_backlog = sysctl_unix_max_dgram_qlen;
 	sk->destruct = unix_sock_destructor;
+
+	//设置unix_opt
 	sk->protinfo.af_unix.dentry=NULL;
 	sk->protinfo.af_unix.mnt=NULL;
 	sk->protinfo.af_unix.lock = RW_LOCK_UNLOCKED;
@@ -490,7 +504,8 @@ static struct sock * unix_create1(struct socket *sock)
 	init_MUTEX(&sk->protinfo.af_unix.readsem);/* single task reading lock */
 	init_waitqueue_head(&sk->protinfo.af_unix.peer_wait);
 	sk->protinfo.af_unix.list=NULL;
-	unix_insert_socket(&unix_sockets_unbound, sk);
+	unix_insert_socket(&unix_sockets_unbound, sk);	
+	//插入到unix_socket结构队列中，并将该sock结构的使用计数设置成1
 
 	return sk;
 }
@@ -500,20 +515,20 @@ static int unix_create(struct socket *sock, int protocol)
 	if (protocol && protocol != PF_UNIX)
 		return -EPROTONOSUPPORT;
 
-	sock->state = SS_UNCONNECTED;
+	sock->state = SS_UNCONNECTED;		//初始化的时候，设置有无连接模式
 
 	switch (sock->type) {
-	case SOCK_STREAM:
-		sock->ops = &unix_stream_ops;
+	case SOCK_STREAM:					//有连接模式
+		sock->ops = &unix_stream_ops;	//设置成流模式
 		break;
 		/*
 		 *	Believe it or not BSD has AF_UNIX, SOCK_RAW though
 		 *	nothing uses it.
 		 */
-	case SOCK_RAW:
-		sock->type=SOCK_DGRAM;
+	case SOCK_RAW:						//无连接模式
+		sock->type=SOCK_DGRAM;			//等同于报文模式
 	case SOCK_DGRAM:
-		sock->ops = &unix_dgram_ops;
+		sock->ops = &unix_dgram_ops;	//设置成报文模式
 		break;
 	default:
 		return -ESOCKTNOSUPPORT;
@@ -593,10 +608,10 @@ static unix_socket *unix_find_other(struct sockaddr_un *sunname, int len,
 	struct nameidata nd;
 	int err = 0;
 	
-	if (sunname->sun_path[0]) {
+	if (sunname->sun_path[0]) {		//对于常规的以文件路径名为代表的插口地址
 		if (path_init(sunname->sun_path, 
 			      LOOKUP_POSITIVE|LOOKUP_FOLLOW, &nd))
-			err = path_walk(sunname->sun_path, &nd);
+			err = path_walk(sunname->sun_path, &nd);	//通过这些来查找
 		if (err)
 			goto fail;
 		err = permission(nd.dentry->d_inode,MAY_WRITE);
@@ -606,7 +621,7 @@ static unix_socket *unix_find_other(struct sockaddr_un *sunname, int len,
 		err = -ECONNREFUSED;
 		if (!S_ISSOCK(nd.dentry->d_inode->i_mode))
 			goto put_fail;
-		u=unix_find_socket_byinode(nd.dentry->d_inode);
+		u=unix_find_socket_byinode(nd.dentry->d_inode);	//通过索引节点号来在杂凑表中查找
 		if (!u)
 			goto put_fail;
 
@@ -619,7 +634,7 @@ static unix_socket *unix_find_other(struct sockaddr_un *sunname, int len,
 		}
 	} else {
 		err = -ECONNREFUSED;
-		u=unix_find_socket_byname(sunname, len, type, hash);
+		u=unix_find_socket_byname(sunname, len, type, hash);	//对于抽象地址的查找
 		if (!u)
 			goto fail;
 	}
@@ -632,11 +647,11 @@ fail:
 	return NULL;
 }
 
-
+//unix域的bind操作unix_bind来绑定
 static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 {
 	struct sock *sk = sock->sk;
-	struct sockaddr_un *sunaddr=(struct sockaddr_un *)uaddr;
+	struct sockaddr_un *sunaddr=(struct sockaddr_un *)uaddr;	//转换
 	struct dentry * dentry = NULL;
 	struct nameidata nd;
 	int err;
@@ -653,7 +668,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 		goto out;
 	}
 
-	err = unix_mkname(sunaddr, addr_len, &hash);
+	err = unix_mkname(sunaddr, addr_len, &hash);	//进行检查
 	if (err < 0)
 		goto out;
 	addr_len = err;
@@ -674,13 +689,13 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	addr->hash = hash^sk->type;
 	atomic_set(&addr->refcnt, 1);
 
-	if (sunaddr->sun_path[0]) {
+	if (sunaddr->sun_path[0]) {		//当插口地址为常规的文件路径名时
 		err = 0;
 		/*
 		 * Get the parent directory, calculate the hash for last
 		 * component.
 		 */
-		if (path_init(sunaddr->sun_path, LOOKUP_PARENT, &nd))
+		if (path_init(sunaddr->sun_path, LOOKUP_PARENT, &nd))	//首先找到它的父节点
 			err = path_walk(sunaddr->sun_path, &nd);
 		if (err)
 			goto out_mknod_parent;
@@ -729,7 +744,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 
 	if (!sunaddr->sun_path[0]) {
 		err = -EADDRINUSE;
-		if (__unix_find_socket_byname(sunaddr, addr_len,
+		if (__unix_find_socket_byname(sunaddr, addr_len,	//首先要根据地址的杂凑值在相应的队列检查这个地址是否存在
 					      sk->type, hash)) {
 			unix_release_addr(addr);
 			goto out_unlock;
@@ -745,7 +760,7 @@ static int unix_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
 	err = 0;
 	__unix_remove_socket(sk);
 	sk->protinfo.af_unix.addr = addr;
-	__unix_insert_socket(list, sk);
+	__unix_insert_socket(list, sk);			//重新放入队列中，本来是在对尾部的
 
 out_unlock:
 	write_unlock(&unix_table_lock);
@@ -766,6 +781,9 @@ out_mknod_parent:
 	unix_release_addr(addr);
 	goto out_up;
 }
+
+
+//sys_listen
 
 static int unix_dgram_connect(struct socket *sock, struct sockaddr *addr,
 			      int alen, int flags)
@@ -849,6 +867,7 @@ static long unix_wait_for_peer(unix_socket *other, long timeo)
 	return timeo;
 }
 
+//有连接模式下的连接
 static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 			       int addr_len, int flags)
 {
@@ -867,11 +886,11 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 		goto out;
 	addr_len = err;
 
-	if (sock->passcred && !sk->protinfo.af_unix.addr &&
-	    (err = unix_autobind(sock)) != 0)
+	if (sock->passcred && !sk->protinfo.af_unix.addr &&	//passcred表示要将自己的身份告诉对方
+	    (err = unix_autobind(sock)) != 0)	//如果没有生成地址，那就unix_autobind自动生成一个地址
 		goto out;
 
-	timeo = sock_sndtimeo(sk, flags & O_NONBLOCK);
+	timeo = sock_sndtimeo(sk, flags & O_NONBLOCK);	
 
 	/* First of all allocate resources.
 	   If we will make it after state is locked,
@@ -886,13 +905,13 @@ static int unix_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 		goto out;
 
 	/* Allocate skb for sending to listening sock */
-	skb = sock_wmalloc(newsk, 1, 0, GFP_KERNEL);
+	skb = sock_wmalloc(newsk, 1, 0, GFP_KERNEL);	//分配一个sock结构
 	if (skb == NULL)
 		goto out;
 
 restart:
 	/*  Find listening sock. */
-	other=unix_find_other(sunaddr, addr_len, sk->type, hash, &err);
+	other=unix_find_other(sunaddr, addr_len, sk->type, hash, &err);	//根据给定的地址找到目标插口sock数据结构
 	if (!other)
 		goto out;
 
@@ -900,22 +919,23 @@ restart:
 	unix_state_rlock(other);
 
 	/* Apparently VFS overslept socket death. Retry. */
-	if (other->dead) {
-		unix_state_runlock(other);
-		sock_put(other);
+	if (other->dead) {	//如果server已经消失的时候
+		unix_state_runlock(other);		//使用读写锁，可能server进程正在撤销该结构
+		sock_put(other);	//将相应的sock减1
 		goto restart;
 	}
 
 	err = -ECONNREFUSED;
-	if (other->state != TCP_LISTEN)
+	if (other->state != TCP_LISTEN)		//只有在server接口在处于TCP_LISTEN的时候才允许接收连接请求
 		goto out_unlock;
 
-	if (skb_queue_len(&other->receive_queue) > other->max_ack_backlog) {
+	if (skb_queue_len(&other->receive_queue) > other->max_ack_backlog) {	//sever接口中接受连接请求报文是有长度限制的；
+
 		err = -EAGAIN;
 		if (!timeo)
 			goto out_unlock;
 
-		timeo = unix_wait_for_peer(other, timeo);
+		timeo = unix_wait_for_peer(other, timeo);	//进入睡眠
 
 		err = sock_intr_errno(timeo);
 		if (signal_pending(current))
@@ -950,9 +970,11 @@ restart:
 		goto out_unlock;
 	}
 
+	//通过了检查，那就要改变状态
+
 	unix_state_wlock(sk);
 
-	if (sk->state != st) {
+	if (sk->state != st) {		//即使锁住了，也要再一次检查
 		unix_state_wunlock(sk);
 		unix_state_runlock(other);
 		sock_put(other);
@@ -987,14 +1009,14 @@ restart:
 	sock_hold(newsk);
 	unix_peer(sk)=newsk;
 	sock->state=SS_CONNECTED;
-	sk->state=TCP_ESTABLISHED;
+	sk->state=TCP_ESTABLISHED;		//设置成TCP_ESTABLISHED
 
 	unix_state_wunlock(sk);
 
 	/* take ten and and send info to listening sock */
-	skb_queue_tail(&other->receive_queue,skb);
+	skb_queue_tail(&other->receive_queue,skb);		//将sk_buff结构挂入到server方的sock结构的receive_queue队列中
 	unix_state_runlock(other);
-	other->data_ready(other, 0);
+	other->data_ready(other, 0);	//	sock_def_readable
 	sock_put(other);
 	return 0;
 
@@ -1054,13 +1076,14 @@ static int unix_accept(struct socket *sock, struct socket *newsock, int flags)
 	 * so that no locks are necessary.
 	 */
 
-	skb = skb_recv_datagram(sk, 0, flags&O_NONBLOCK, &err);
+	skb = skb_recv_datagram(sk, 0, flags&O_NONBLOCK, &err);	//从receive_queue队列中接收代表着连接请求的控制报文
+	//指针skb指向接收到的报文
 	if (!skb)
 		goto out;
 
-	tsk = skb->sk;
+	tsk = skb->sk;		//由connect()的过程中分配
 	skb_free_datagram(sk, skb);
-	wake_up_interruptible(&sk->protinfo.af_unix.peer_wait);
+	wake_up_interruptible(&sk->protinfo.af_unix.peer_wait);	//把可能睡眠等待的进程唤醒，把请求的一方
 
 	/* attach accepted sock to socket */
 	unix_state_wlock(tsk);
@@ -1073,14 +1096,16 @@ out:
 	return err;
 }
 
-
+//sys_accept
+//
+//获得插口的地址
 static int unix_getname(struct socket *sock, struct sockaddr *uaddr, int *uaddr_len, int peer)
 {
 	struct sock *sk = sock->sk;
 	struct sockaddr_un *sunaddr=(struct sockaddr_un *)uaddr;
 	int err = 0;
 
-	if (peer) {
+	if (peer) {		//为1，表示获得对方的地址
 		sk = unix_peer_get(sk);
 
 		err = -ENOTCONN;
@@ -1145,6 +1170,7 @@ static void unix_attach_fds(struct scm_cookie *scm, struct sk_buff *skb)
 /*
  *	Send AF_UNIX data.
  */
+
 
 static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 			      struct scm_cookie *scm)
@@ -1395,6 +1421,10 @@ static void unix_copy_addr(struct msghdr *msg, struct sock *sk)
 	}
 }
 
+//scm_recv
+
+
+//unix数据包接收
 static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 			      int flags, struct scm_cookie *scm)
 {
@@ -1404,24 +1434,24 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 	int err;
 
 	err = -EOPNOTSUPP;
-	if (flags&MSG_OOB)
+	if (flags&MSG_OOB)		//表示数据是有序的，用于控制报文，编外的报文，也就称为OOB报文
 		goto out;
 
 	msg->msg_namelen = 0;
 
-	skb = skb_recv_datagram(sk, flags, noblock, &err);
+	skb = skb_recv_datagram(sk, flags, noblock, &err);	//从插口的接收队列中摘取，或者从该等待队列中摘取一个运载着报文的sk_buff
 	if (!skb)
 		goto out;
 
 	wake_up_interruptible(&sk->protinfo.af_unix.peer_wait);
 
-	if (msg->msg_name)
+	if (msg->msg_name)		//不为NULL，说明已经准备好了缓冲区了
 		unix_copy_addr(msg, skb->sk);
 
 	if (size > skb->len)
 		size = skb->len;
 	else if (size < skb->len)
-		msg->msg_flags |= MSG_TRUNC;
+		msg->msg_flags |= MSG_TRUNC;		//设置成报文有可能会被截断
 
 	err = skb_copy_datagram_iovec(skb, 0, msg->msg_iov, size);
 	if (err)
@@ -1429,7 +1459,7 @@ static int unix_dgram_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 
 	scm->creds = *UNIXCREDS(skb);
 
-	if (!(flags & MSG_PEEK))
+	if (!(flags & MSG_PEEK))			//判断是否只是查看，不是查看
 	{
 		if (UNIXCB(skb).fp)
 			unix_detach_fds(scm, skb);
@@ -1828,14 +1858,14 @@ struct proto_ops unix_dgram_ops = {
 	bind:		unix_bind,
 	connect:	unix_dgram_connect,
 	socketpair:	unix_socketpair,
-	accept:		sock_no_accept,
+	accept:		sock_no_accept,			//不需要接收
 	getname:	unix_getname,
 	poll:		datagram_poll,
 	ioctl:		unix_ioctl,
-	listen:		sock_no_listen,
+	listen:		sock_no_listen,			//同样的也不支持listen
 	shutdown:	unix_shutdown,
-	setsockopt:	sock_no_setsockopt,
-	getsockopt:	sock_no_getsockopt,
+	setsockopt:	sock_no_setsockopt,		//同样的不支持setsockopt
+	getsockopt:	sock_no_getsockopt,		//不支持getsockopt
 	sendmsg:	unix_dgram_sendmsg,
 	recvmsg:	unix_dgram_recvmsg,
 	mmap:		sock_no_mmap,

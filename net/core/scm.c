@@ -116,6 +116,8 @@ int __scm_send(struct socket *sock, struct msghdr *msg, struct scm_cookie *p)
 	struct cmsghdr *cmsg;
 	int err;
 
+	//把附加信息挂入到最后
+
 	for (cmsg = CMSG_FIRSTHDR(msg); cmsg; cmsg = CMSG_NXTHDR(msg, cmsg))
 	{
 		err = -EINVAL;
@@ -211,7 +213,8 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
 	int err = 0, i;
 
 	if (msg->msg_controllen > sizeof(struct cmsghdr))
-		fdmax = ((msg->msg_controllen - sizeof(struct cmsghdr))
+		fdmax = ((msg->msg_controllen - sizeof(struct cmsghdr))	
+					//表示接收方msghdr结构中用来接收这些已打开文件指针的缓冲区容量
 			 / sizeof(int));
 
 	if (fdnum < fdmax)
@@ -231,7 +234,7 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
 		}
 		/* Bump the usage count and install the file. */
 		get_file(fp[i]);
-		fd_install(new_fd, fp[i]);
+		fd_install(new_fd, fp[i]);		//安装发送进程的file，来共享该结构
 	}
 
 	if (i > 0)
@@ -245,7 +248,7 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
 			err = put_user(cmlen, &cm->cmsg_len);
 		if (!err) {
 			cmlen = CMSG_SPACE(i*sizeof(int));
-			msg->msg_control += cmlen;
+			msg->msg_control += cmlen;				//还要设置头部信息
 			msg->msg_controllen -= cmlen;
 		}
 	}
@@ -258,6 +261,10 @@ void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
 	 */
 	__scm_destroy(scm);
 }
+
+
+//sock_sendmsg
+
 
 struct scm_fp_list *scm_fp_dup(struct scm_fp_list *fpl)
 {

@@ -13,13 +13,17 @@
  */
 
 
+//sys_recvfrom
+
+
 /* A word of warning: Our uio structure will clash with the C library one (which is now obsolete). Remove the C
    library one from sys/uio.h if you have a very old library set */
 
+//称为一个I/O向量
 struct iovec
 {
-	void *iov_base;		/* BSD uses caddr_t (1003.1g requires void *) */
-	__kernel_size_t iov_len; /* Must be size_t (1003.1g) */
+	void *iov_base;		/* BSD uses caddr_t (1003.1g requires void *) */	//指向数据缓冲区
+	__kernel_size_t iov_len; /* Must be size_t (1003.1g) */					//数据缓冲区的长度
 };
 
 /*
