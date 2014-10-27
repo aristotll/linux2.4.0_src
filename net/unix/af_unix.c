@@ -358,11 +358,11 @@ static int unix_release_sock (unix_socket *sk, int embrion)
 	struct sk_buff *skb;
 	int state;
 
-	unix_remove_socket(sk);
+	unix_remove_socket(sk);			//将插口sock从杂凑表中离开链表
 
 	/* Clear state */
-	unix_state_wlock(sk);
-	sock_orphan(sk);
+	unix_state_wlock(sk);				
+	sock_orphan(sk);				//改变sock结构中的一些状态信息以及一些指针了
 	sk->shutdown = SHUTDOWN_MASK;
 	dentry = sk->protinfo.af_unix.dentry;
 	sk->protinfo.af_unix.dentry=NULL;
@@ -373,6 +373,7 @@ static int unix_release_sock (unix_socket *sk, int embrion)
 	unix_state_wunlock(sk);
 
 	wake_up_interruptible_all(&sk->protinfo.af_unix.peer_wait);
+	//唤醒在sk上等待的进程，因为sock已经死亡了，故会出错返回
 
 	skpair=unix_peer(sk);
 
@@ -380,12 +381,13 @@ static int unix_release_sock (unix_socket *sk, int embrion)
 		if (sk->type==SOCK_STREAM) {
 			unix_state_wlock(skpair);
 			skpair->shutdown=SHUTDOWN_MASK;	/* No more writes*/
-			if (!skb_queue_empty(&sk->receive_queue) || embrion)
-				skpair->err = ECONNRESET;
+			if (!skb_queue_empty(&sk->receive_queue) || embrion)	//如果我方的接收队列中还有报文
+				skpair->err = ECONNRESET;	//设置对方的出错码ECONNRESET
 			unix_state_wunlock(skpair);
-			skpair->state_change(skpair);
+			skpair->state_change(skpair);	//指向sock_def_wakeup();每当一个插口的状态改变时，可以唤醒可能正在睡眠等待该插口改变状态的进程
+
 			read_lock(&skpair->callback_lock);
-			sk_wake_async(skpair,1,POLL_HUP);
+			sk_wake_async(skpair,1,POLL_HUP);	//发送一个SIGIO信号
 			read_unlock(&skpair->callback_lock);
 		}
 		sock_put(skpair); /* It may now die */
@@ -394,9 +396,10 @@ static int unix_release_sock (unix_socket *sk, int embrion)
 
 	/* Try to flush out this socket. Throw out buffers at least */
 
-	while((skb=skb_dequeue(&sk->receive_queue))!=NULL)
+	while((skb=skb_dequeue(&sk->receive_queue))!=NULL)	//如果插口队列中还有报文，就将它逐个释放下来
 	{
-		if (state==TCP_LISTEN)
+		if (state==TCP_LISTEN)	
+		  //递归调用所有client方创建好的sock结构
 			unix_release_sock(skb->sk, 1);
 		/* passed fds are erased in the kfree_skb hook	      */
 		kfree_skb(skb);
@@ -423,7 +426,7 @@ static int unix_release_sock (unix_socket *sk, int embrion)
 	 */
 
 	if (atomic_read(&unix_tot_inflight))
-		unix_gc();		/* Garbage collect fds */	
+		unix_gc();		/* Garbage collect fds */	//进行死锁解除
 
 	return 0;
 }
@@ -537,6 +540,7 @@ static int unix_create(struct socket *sock, int protocol)
 	return unix_create1(sock) ? 0 : -ENOMEM;
 }
 
+//unix域插口的释放，unix_stream_ops和unix_dgram_ops指针指向是一样的
 static int unix_release(struct socket *sock)
 {
 	unix_socket *sk = sock->sk;
@@ -1133,6 +1137,7 @@ out:
 	return err;
 }
 
+//所有已打开文件代表着Unix域插口
 static void unix_detach_fds(struct scm_cookie *scm, struct sk_buff *skb)
 {
 	int i;
@@ -1219,10 +1224,11 @@ static int unix_dgram_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 
 	skb->h.raw = skb->data;
 	err = memcpy_fromiovec(skb_put(skb,len), msg->msg_iov, len);
+	//再将报文中数据从用户空间的iovc缓冲区拷贝到sk_buff结构中
 	if (err)
 		goto out_free;
 
-	timeo = sock_sndtimeo(sk, msg->msg_flags & MSG_DONTWAIT);
+	timeo = sock_sndtimeo(sk, msg->msg_flags & MSG_DONTWAIT);	//对发送过程中的时间限制
 
 restart:
 	if (!other) {
@@ -1230,7 +1236,7 @@ restart:
 		if (sunaddr == NULL)
 			goto out_free;
 
-		other = unix_find_other(sunaddr, namelen, sk->type, hash, &err);
+		other = unix_find_other(sunaddr, namelen, sk->type, hash, &err);	//找到对方的sock结构
 		if (other==NULL)
 			goto out_free;
 	}
@@ -1268,7 +1274,7 @@ restart:
 	}
 
 	err = -EPIPE;
-	if (other->shutdown&RCV_SHUTDOWN)
+	if (other->shutdown&RCV_SHUTDOWN)			//看插口是否shutdown
 		goto out_unlock;
 
 	if (unix_peer(other) != sk &&
@@ -1303,6 +1309,7 @@ out:
 	return err;
 }
 
+//unix_stream_recvmsg
 		
 static int unix_stream_sendmsg(struct socket *sock, struct msghdr *msg, int len,
 			       struct scm_cookie *scm)
@@ -1525,15 +1532,17 @@ static long unix_stream_data_wait(unix_socket * sk, long timeo)
 }
 
 
-
+//有连接模式下的，报文的接收
 static int unix_stream_recvmsg(struct socket *sock, struct msghdr *msg, int size,
 			       int flags, struct scm_cookie *scm)
 {
+	//size表示接收缓冲区的大小，也就是想要接收的字节数
+
 	struct sock *sk = sock->sk;
 	struct sockaddr_un *sunaddr=msg->msg_name;
 	int copied = 0;
 	int check_creds = 0;
-	int target;
+	int target;					//读的最低字节数目
 	int err = 0;
 	long timeo;
 
@@ -1542,11 +1551,11 @@ static int unix_stream_recvmsg(struct socket *sock, struct msghdr *msg, int size
 		goto out;
 
 	err = -EOPNOTSUPP;
-	if (flags&MSG_OOB)
+	if (flags&MSG_OOB)		//这是针对一般的网络，Unix域是不支持的
 		goto out;
 
-	target = sock_rcvlowat(sk, flags&MSG_WAITALL, size);
-	timeo = sock_rcvtimeo(sk, flags&MSG_DONTWAIT);
+	target = sock_rcvlowat(sk, flags&MSG_WAITALL, size);	//得到最低限度的值
+	timeo = sock_rcvtimeo(sk, flags&MSG_DONTWAIT);			
 
 	msg->msg_namelen = 0;
 
@@ -1561,10 +1570,10 @@ static int unix_stream_recvmsg(struct socket *sock, struct msghdr *msg, int size
 		int chunk;
 		struct sk_buff *skb;
 
-		skb=skb_dequeue(&sk->receive_queue);
+		skb=skb_dequeue(&sk->receive_queue);		//从接收队列中摘下一个sk_buff
 		if (skb==NULL)
 		{
-			if (copied >= target)
+			if (copied >= target)		//满足最低限度了
 				break;
 
 			/*
@@ -1630,7 +1639,7 @@ static int unix_stream_recvmsg(struct socket *sock, struct msghdr *msg, int size
 			/* put the skb back if we didn't use it up.. */
 			if (skb->len)
 			{
-				skb_queue_head(&sk->receive_queue, skb);
+				skb_queue_head(&sk->receive_queue, skb);	//还要将报文退回到接收队列中
 				break;
 			}
 

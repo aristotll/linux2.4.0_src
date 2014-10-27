@@ -182,9 +182,9 @@ void unix_gc(void)
 
 	read_lock(&unix_table_lock);
 
-	forall_unix_sockets(i, s)
+	forall_unix_sockets(i, s)	//针对杂凑表中所有的队列，扫描队列中的所有sock结构
 	{
-		s->protinfo.af_unix.gc_tree=GC_ORPHAN;
+		s->protinfo.af_unix.gc_tree=GC_ORPHAN;	//所有的都设置
 	}
 	/*
 	 *	Everything is now marked 
@@ -203,14 +203,15 @@ void unix_gc(void)
 	 *	Push root set
 	 */
 
-	forall_unix_sockets(i, s)
+	forall_unix_sockets(i, s)	//进行甄别
 	{
 		/*
 		 *	If all instances of the descriptor are not
 		 *	in flight we are in use.
 		 */
-		if(s->socket && s->socket->file &&
+		if(s->socket && s->socket->file &&  
 		   file_count(s->socket->file) > atomic_read(&s->protinfo.af_unix.inflight))
+		  //当文件共享计数>授权报文计数的时候，才说明正常，就压入堆栈中
 			maybe_unmark_and_push(s);
 	}
 
@@ -220,6 +221,7 @@ void unix_gc(void)
 
 	while (!empty_stack())
 	{
+		//检查是授权的报文，是否真的成了孤儿
 		unix_socket *x = pop_stack();
 		unix_socket *sk;
 
@@ -268,12 +270,12 @@ void unix_gc(void)
 
 	forall_unix_sockets(i, s)
 	{
-		if (s->protinfo.af_unix.gc_tree == GC_ORPHAN)
+		if (s->protinfo.af_unix.gc_tree == GC_ORPHAN)	//确定是孤儿了
 		{
 			struct sk_buff *nextsk;
 			spin_lock(&s->receive_queue.lock);
 			skb=skb_peek(&s->receive_queue);
-			while(skb && skb != (struct sk_buff *)&s->receive_queue)
+			while(skb && skb != (struct sk_buff *)&s->receive_queue)	//扫描其接收队列中的所有报文
 			{
 				nextsk=skb->next;
 				/*
@@ -282,7 +284,7 @@ void unix_gc(void)
 				if(UNIXCB(skb).fp)
 				{
 					__skb_unlink(skb, skb->list);
-					__skb_queue_tail(&hitlist,skb);
+					__skb_queue_tail(&hitlist,skb);	//凡是发现载有访问报文授权的报文就将其从接收队列中摘下来，到一个hitlist中去
 				}
 				skb=nextsk;
 			}

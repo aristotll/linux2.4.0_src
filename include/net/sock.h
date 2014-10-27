@@ -993,7 +993,7 @@ static inline void __sock_put(struct sock *sk)
 static inline void sock_put(struct sock *sk)
 {
 	if (atomic_dec_and_test(&sk->refcnt))
-		sk_free(sk);
+		sk_free(sk);		//释放
 }
 
 /* Detach socket from process context.
@@ -1005,9 +1005,9 @@ static inline void sock_put(struct sock *sk)
  */
 static inline void sock_orphan(struct sock *sk)
 {
-	write_lock_bh(&sk->callback_lock);
-	sk->dead = 1;
-	sk->socket = NULL;
+	write_lock_bh(&sk->callback_lock);		//仅仅读一部分而已
+	sk->dead = 1;		//设置成1，表示这个接口已经死亡了
+	sk->socket = NULL;	
 	sk->sleep = NULL;
 	write_unlock_bh(&sk->callback_lock);
 }

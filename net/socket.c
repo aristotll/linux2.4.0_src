@@ -491,6 +491,9 @@ void sock_release(struct socket *sock)
 	if (sock->ops) 
 		sock->ops->release(sock);
 
+	//都指向unix_release
+
+
 	if (sock->fasync_list)
 		printk(KERN_ERR "sock_release: fasync list not empty!\n");
 
@@ -704,6 +707,7 @@ static int sock_mmap(struct file * file, struct vm_area_struct * vma)
 	return sock->ops->mmap(file, sock, vma);
 }
 
+//插口关闭
 int sock_close(struct inode *inode, struct file *filp)
 {
 	/*
@@ -716,7 +720,7 @@ int sock_close(struct inode *inode, struct file *filp)
 		printk(KERN_DEBUG "sock_close: NULL inode\n");
 		return 0;
 	}
-	sock_fasync(-1, filp, 0);
+	sock_fasync(-1, filp, 0);			//首先释放fasync_list
 	sock_release(socki_lookup(inode));
 	return 0;
 }
