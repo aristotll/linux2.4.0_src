@@ -1829,6 +1829,7 @@ search:
 	revalidate_drives();
 }
 
+//块设备中的open
 static int ide_open (struct inode * inode, struct file * filp)
 {
 	ide_drive_t *drive;
@@ -1840,6 +1841,7 @@ static int ide_open (struct inode * inode, struct file * filp)
 	if (drive->driver == NULL)
 		ide_driver_module();
 #ifdef CONFIG_KMOD
+	//不同的设备，不同的请求模块机制
 	if (drive->driver == NULL) {
 		if (drive->media == ide_disk)
 			(void) request_module("ide-disk");

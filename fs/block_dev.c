@@ -491,6 +491,7 @@ int get_blkdev_list(char * p)
 	Return the function table of a device.
 	Load the driver if needed.
 */
+//怎样来找到具体的块设备blkfops；
 const struct block_device_operations * get_blkfops(unsigned int major)
 {
 	const struct block_device_operations *ret = NULL;
@@ -498,10 +499,10 @@ const struct block_device_operations * get_blkfops(unsigned int major)
 	/* major 0 is used for non-device mounts */
 	if (major && major < MAX_BLKDEV) {
 #ifdef CONFIG_KMOD
-		if (!blkdevs[major].bdops) { //是根据设备号来确定设备的
+		if (!blkdevs[major].bdops) {	 //是根据设备号来确定设备的
 			char name[20];
 			sprintf(name, "block-major-%d", major);
-			request_module(name);
+			request_module(name);		//如果内核在初始化的时候没有登记某种设备，可以通过装载机制来装载
 		}
 #endif
 		ret = blkdevs[major].bdops;
@@ -652,10 +653,11 @@ int blkdev_open(struct inode * inode, struct file * filp)
 	lock_kernel();
 	if (!bdev->bd_op)
 		bdev->bd_op = get_blkfops(MAJOR(inode->i_rdev));
-	if (bdev->bd_op) {
+		//block_device_operations是连接虚拟的，抽象的vfs文件操作与具体块设备类型的操作之间的枢纽
+	if (bdev->bd_op) {	
 		ret = 0;
 		if (bdev->bd_op->open)
-			ret = bdev->bd_op->open(inode,filp);
+			ret = bdev->bd_op->open(inode,filp);	//调用到open，ide_open
 		if (!ret)
 			atomic_inc(&bdev->bd_openers);
 		else if (!atomic_read(&bdev->bd_openers))
